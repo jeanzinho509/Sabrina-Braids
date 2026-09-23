@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { salonDate, whatsappLink, money } from "@/utils/salon";
+import { apiRequest } from "@/utils/useApi";
 import useUpload from "@/utils/useUpload";
 
 export default function AgendarPage() {
+  const [whatsappUrl, setWhatsappUrl] = useState("");
+  const [servicesLoading, setServicesLoading] = useState(true);
   const [step, setStep] = useState(1);
   const [services, setServices] = useState([]);
   const [selectedService, setSelectedService] = useState(null);
@@ -26,34 +30,33 @@ export default function AgendarPage() {
     notes: "",
   });
 
-  // Carregar serviços
   useEffect(() => {
-    fetch("/api/services")
-      .then((res) => res.json())
+    apiRequest("/api/services")
       .then((data) => setServices(data.services || []))
-      .catch((err) => console.error(err));
+      .catch((error) => setError(error.message))
+      .finally(() => setServicesLoading(false));
   }, []);
 
-  // Carregar horários disponíveis quando serviço e data são selecionados
   useEffect(() => {
-    if ((selectedService || isCustomModel) && selectedDate) {
-      setLoading(true);
-      const duration = isCustomModel
-        ? 300
-        : selectedService?.duration_minutes || 300;
-      fetch(
-        `/api/appointments/available-times?date=${selectedDate}&duration=${duration}`,
-      )
-        .then((res) => res.json())
-        .then((data) => {
-          setAvailableTimes(data.availableSlots || []);
-          setLoading(false);
-        })
-        .catch((err) => {
-          console.error(err);
-          setLoading(false);
-        });
-    }
+    setSelectedTime("");
+    setAvailableTimes([]);
+    if (!(selectedService || isCustomModel) || !selectedDate) return;
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    const duration = isCustomModel ? 300 : selectedService.duration_minutes;
+    apiRequest(
+      `/api/appointments/available-times?date=${selectedDate}&duration=${duration}`,
+      { signal: controller.signal },
+    )
+      .then((data) => setAvailableTimes(data.availableSlots || []))
+      .catch((error) => {
+        if (error.name !== "AbortError") setError(error.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
   }, [selectedService, isCustomModel, selectedDate]);
 
   const handleServiceSelect = (service) => {
@@ -71,30 +74,19 @@ export default function AgendarPage() {
     setStep(2);
   };
 
-  const handleCustomImageUpload = async (e) => {
-    const file = e.target.files[0];
+  const handleCustomImageUpload = async (event) => {
+    const file = event.target.files?.[0];
     if (!file) return;
-
-    try {
-      const reader = new FileReader();
-      reader.onloadedend = async () => {
-        const base64 = reader.result;
-        setUploadedImagePreview(base64); // Preview imediato
-
-        const { url, error: uploadError } = await upload({ base64 });
-
-        if (uploadError) {
-          setError("Erro ao fazer upload da imagem");
-          return;
-        }
-
-        setCustomModelImage(url);
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      setError("Erro ao fazer upload da imagem");
+    setCustomModelImage("");
+    setUploadedImagePreview("");
+    setError(null);
+    const result = await upload({ file });
+    if (result.error) {
+      setError(result.error);
+      return;
     }
+    setCustomModelImage(result.url);
+    setUploadedImagePreview(result.url);
   };
 
   const handleDateSelect = (e) => {
@@ -104,6 +96,15 @@ export default function AgendarPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading || uploading) return;
+    if (
+      !selectedDate ||
+      !selectedTime ||
+      (!selectedService && !isCustomModel)
+    ) {
+      setError("Selecione serviço, data e horário.");
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -135,6 +136,11 @@ export default function AgendarPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
+        if (response.status === 409) {
+          setSelectedTime("");
+          setSelectedDate("");
+          setStep(2);
+        }
         throw new Error(errorData.error || "Erro ao criar agendamento");
       }
 
@@ -146,21 +152,15 @@ export default function AgendarPage() {
       const serviceName = isCustomModel
         ? "Modelo Customizado"
         : selectedService.name;
-      const whatsappMessage = encodeURIComponent(
+      const whatsappMessage =
         `Olá! Acabei de fazer um agendamento:\n\n` +
-          `📅 Serviço: ${serviceName}\n` +
-          `📆 Data: ${new Date(selectedDate + "T00:00:00").toLocaleDateString("pt-BR")}\n` +
-          `⏰ Horário: ${selectedTime}\n` +
-          `👤 Nome: ${formData.clientName}\n\n` +
-          `Aguardo a confirmação!`,
-      );
+        `📅 Serviço: ${serviceName}\n` +
+        `📆 Data: ${new Date(selectedDate + "T00:00:00").toLocaleDateString("pt-BR")}\n` +
+        `⏰ Horário: ${selectedTime}\n` +
+        `👤 Nome: ${formData.clientName}\n\n` +
+        `Aguardo a confirmação!`;
 
-      setTimeout(() => {
-        window.open(
-          `https://wa.me/5521993662669?text=${whatsappMessage}`,
-          "_blank",
-        );
-      }, 1000);
+      setWhatsappUrl(whatsappLink(whatsappMessage));
     } catch (err) {
       console.error(err);
       setError(err.message);
@@ -169,35 +169,17 @@ export default function AgendarPage() {
     }
   };
 
-  // Gerar próximos 30 dias disponíveis
-  const getAvailableDates = () => {
-    const dates = [];
-    const today = new Date();
-
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-
-      // Pular domingos (0)
-      if (date.getDay() !== 0) {
-        dates.push(date.toISOString().split("T")[0]);
-      }
-    }
-
-    return dates;
-  };
-
-  const minDate = new Date().toISOString().split("T")[0];
-  const maxDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+  const minDate = salonDate();
+  const maxDate = new Date(Date.parse(`${minDate}T12:00:00Z`) + 30 * 86400000)
     .toISOString()
-    .split("T")[0];
+    .slice(0, 10);
 
   return (
     <div className="min-h-screen bg-gray-50 font-inter">
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <a
               href="/"
               className="text-2xl font-semibold text-gray-900 tracking-tight"
@@ -212,7 +194,7 @@ export default function AgendarPage() {
       {/* Progress Steps */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             {[
               { num: 1, label: "Serviço" },
               { num: 2, label: "Data & Hora" },
@@ -224,7 +206,7 @@ export default function AgendarPage() {
                   <div
                     className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-medium transition-colors ${
                       step >= s.num
-                        ? "border-blue-600 bg-blue-600 text-white"
+                        ? "border-blue-600 bg-[#5c4737] text-white"
                         : "border-gray-200 bg-white text-gray-400"
                     }`}
                   >
@@ -239,7 +221,7 @@ export default function AgendarPage() {
                 {idx < 3 && (
                   <div
                     className={`h-0.5 flex-1 -mt-6 transition-colors ${
-                      step > s.num ? "bg-blue-600" : "bg-gray-200"
+                      step > s.num ? "bg-[#5c4737]" : "bg-gray-200"
                     }`}
                   />
                 )}
@@ -252,7 +234,10 @@ export default function AgendarPage() {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+          <div
+            role="alert"
+            className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4"
+          >
             <p className="text-sm text-red-800">{error}</p>
           </div>
         )}
@@ -267,6 +252,24 @@ export default function AgendarPage() {
               Selecione o estilo de trança que você deseja
             </p>
 
+            {servicesLoading && (
+              <p role="status" className="mb-4">
+                Carregando serviços...
+              </p>
+            )}
+            {!servicesLoading && !services.length && (
+              <p className="mb-4 text-sm text-gray-600">
+                O catálogo ainda não está disponível. Você pode solicitar um
+                modelo personalizado ou falar conosco pelo{" "}
+                <a
+                  className="underline"
+                  href={whatsappLink("Olá! Gostaria de agendar um horário.")}
+                >
+                  WhatsApp
+                </a>
+                .
+              </p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {services.map((service) => (
                 <button
@@ -285,7 +288,7 @@ export default function AgendarPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className="text-2xl font-semibold text-gray-900">
                       R$ {parseFloat(service.price).toFixed(2)}
                     </span>
@@ -366,7 +369,7 @@ export default function AgendarPage() {
                   </label>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
                     onChange={handleCustomImageUpload}
                     className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border file:border-gray-200 file:text-sm file:font-medium file:bg-white file:text-gray-700 hover:file:bg-gray-50"
                   />
@@ -403,13 +406,18 @@ export default function AgendarPage() {
 
             {selectedService && !isCustomModel && (
               <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {selectedService?.name}
+                      {isCustomModel
+                        ? "Modelo personalizado"
+                        : selectedService?.name}
                     </h3>
                     <p className="text-sm text-gray-600 mt-1">
-                      R$ {parseFloat(selectedService?.price || 0).toFixed(2)} •{" "}
+                      {isCustomModel
+                        ? "Valor a combinar"
+                        : money(selectedService?.price)}{" "}
+                      •{" "}
                       {Math.floor(
                         (selectedService?.duration_minutes || 0) / 60,
                       )}
@@ -463,7 +471,18 @@ export default function AgendarPage() {
                       {availableTimes.map((slot) => (
                         <button
                           key={slot.start}
+                          disabled={uploading}
                           onClick={() => {
+                            if (
+                              isCustomModel &&
+                              (!customModelImage ||
+                                !customModelDescription.trim())
+                            ) {
+                              setError(
+                                "Adicione a imagem e a descrição do modelo antes de escolher o horário.",
+                              );
+                              return;
+                            }
                             setSelectedTime(slot.start);
                             setStep(3);
                           }}
@@ -504,10 +523,12 @@ export default function AgendarPage() {
             </button>
 
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    {selectedService?.name}
+                    {isCustomModel
+                      ? "Modelo personalizado"
+                      : selectedService?.name}
                   </h3>
                   <p className="text-sm text-gray-600 mt-1">
                     {new Date(selectedDate + "T00:00:00").toLocaleDateString(
@@ -555,7 +576,7 @@ export default function AgendarPage() {
                     setFormData({ ...formData, clientPhone: e.target.value })
                   }
                   className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                  placeholder="(11) 99999-9999"
+                  placeholder="(21) 99999-9999"
                 />
               </div>
 
@@ -592,7 +613,7 @@ export default function AgendarPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-[#5c4737] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#8c6b52] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Confirmando..." : "Confirmar Agendamento"}
               </button>
@@ -620,11 +641,11 @@ export default function AgendarPage() {
             </div>
 
             <h2 className="text-2xl font-semibold text-gray-900 tracking-tight mb-2">
-              Agendamento realizado!
+              Solicitação recebida!
             </h2>
             <p className="text-gray-600 mb-8">
-              Seu agendamento foi enviado com sucesso. Você receberá a
-              confirmação em breve.
+              Seu pedido foi salvo e aguarda confirmação da equipe. Fale conosco
+              pelo WhatsApp para combinar os detalhes.
             </p>
 
             <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-md mx-auto mb-8">
@@ -632,7 +653,9 @@ export default function AgendarPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Serviço:</span>
                   <span className="font-medium text-gray-900">
-                    {selectedService?.name}
+                    {isCustomModel
+                      ? "Modelo personalizado"
+                      : selectedService?.name}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -652,13 +675,25 @@ export default function AgendarPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Valor:</span>
                   <span className="font-medium text-gray-900">
-                    R$ {parseFloat(selectedService?.price || 0).toFixed(2)}
+                    {isCustomModel
+                      ? "Valor a combinar"
+                      : money(selectedService?.price)}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center">
+              {whatsappUrl && (
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg bg-green-700 px-6 py-3 font-medium text-white"
+                >
+                  Continuar no WhatsApp
+                </a>
+              )}
               <a
                 href="/"
                 className="bg-white border border-gray-200 text-gray-900 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors"
@@ -680,7 +715,7 @@ export default function AgendarPage() {
                   });
                   setSuccess(false);
                 }}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                className="bg-[#5c4737] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#8c6b52] transition-colors"
               >
                 Fazer outro agendamento
               </a>

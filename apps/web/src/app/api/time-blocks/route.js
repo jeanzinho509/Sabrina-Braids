@@ -1,7 +1,11 @@
+import { requireAdmin } from "@/app/api/utils/admin";
+import { validDate, validTime, toMinutes } from "@/app/api/utils/schedule";
 import sql from "@/app/api/utils/sql";
 
 // GET - Listar bloqueios de horário
 export async function GET(request) {
+  if (!(await requireAdmin()))
+    return Response.json({ error: "Não autorizado" }, { status: 403 });
   try {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get("date");
@@ -30,11 +34,18 @@ export async function GET(request) {
 
 // POST - Criar bloqueio de horário
 export async function POST(request) {
+  if (!(await requireAdmin()))
+    return Response.json({ error: "Não autorizado" }, { status: 403 });
   try {
     const body = await request.json();
     const { blockDate, startTime, endTime, reason } = body;
 
-    if (!blockDate || !startTime || !endTime) {
+    if (
+      !validDate(blockDate) ||
+      !validTime(startTime) ||
+      !validTime(endTime) ||
+      toMinutes(startTime) >= toMinutes(endTime)
+    ) {
       return Response.json(
         { error: "Data, hora inicial e final são obrigatórias" },
         { status: 400 },
@@ -55,6 +66,11 @@ export async function POST(request) {
       { status: 201 },
     );
   } catch (error) {
+    if (error.code === "23P01")
+      return Response.json(
+        { error: "Há um agendamento ou bloqueio nesse intervalo." },
+        { status: 409 },
+      );
     console.error("Error creating time block:", error);
     return Response.json({ error: "Erro ao criar bloqueio" }, { status: 500 });
   }

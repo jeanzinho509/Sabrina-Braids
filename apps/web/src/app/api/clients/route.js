@@ -1,13 +1,5 @@
 import sql from "@/app/api/utils/sql";
-import { auth } from "@/auth";
-
-const ALLOWED_ADMINS = ["jean.dev.com@gmail.com", "estimesabrina15@gmail.com"];
-
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.email) return false;
-  return ALLOWED_ADMINS.includes(session.user.email.toLowerCase().trim());
-}
+import { requireAdmin } from "@/app/api/utils/admin";
 
 // GET - Listar clientes (com busca opcional por nome/telefone)
 // e histórico de atendimentos + serviços favoritos calculados via appointments
@@ -23,9 +15,9 @@ export async function GET(request) {
     let query = `
       SELECT
         c.*,
-        COUNT(a.id) FILTER (WHERE a.status != 'cancelled') as history_count,
-        MAX(a.appointment_date) FILTER (WHERE a.status != 'cancelled') as last_visit,
-        MIN(a.appointment_date) FILTER (WHERE a.status != 'cancelled') as first_visit
+        COUNT(a.id) FILTER (WHERE a.status = 'completed') as history_count,
+        MAX(a.appointment_date) FILTER (WHERE a.status = 'completed') as last_visit,
+        MIN(a.appointment_date) FILTER (WHERE a.status = 'completed') as first_visit
       FROM clients c
       LEFT JOIN appointments a ON a.client_id = c.id
       WHERE 1=1
@@ -56,16 +48,19 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { name, phone, email, instagram, birthday, notes } = body;
+    let { name, phone, email, instagram, birthday, notes } = body;
+    name = typeof name === "string" ? name.trim() : "";
+    phone = typeof phone === "string" ? phone.replace(/\D/g, "") : "";
 
-    if (!name || !phone) {
+    if (!name || !/^\d{10,13}$/.test(phone)) {
       return Response.json(
         { error: "Nome e telefone são obrigatórios" },
         { status: 400 },
       );
     }
 
-    const existing = await sql`SELECT id FROM clients WHERE phone = ${phone}`;
+    const existing =
+      await sql`SELECT id FROM clients WHERE regexp_replace(phone, '[^0-9]', '', 'g') = ${phone}`;
     if (existing.length > 0) {
       return Response.json(
         { error: "Já existe um cliente cadastrado com esse telefone" },

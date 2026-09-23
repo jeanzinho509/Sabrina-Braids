@@ -1,7 +1,10 @@
+import { requireAdmin } from "@/app/api/utils/admin";
 import sql from "@/app/api/utils/sql";
 
 // DELETE - Remover bloqueio de horário
 export async function DELETE(request, { params }) {
+  if (!(await requireAdmin()))
+    return Response.json({ error: "Não autorizado" }, { status: 403 });
   try {
     const { id } = params;
 

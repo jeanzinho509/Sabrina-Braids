@@ -1,7 +1,11 @@
+import { validImage, validVideo } from "@/app/api/utils/media";
+import { requireAdmin } from "@/app/api/utils/admin";
 import sql from "@/app/api/utils/sql";
 
 // DELETE - Remover foto da galeria
 export async function DELETE(request, { params }) {
+  if (!(await requireAdmin()))
+    return Response.json({ error: "Não autorizado" }, { status: 403 });
   try {
     const { id } = params;
 
@@ -31,9 +35,24 @@ export async function DELETE(request, { params }) {
 
 // PATCH - Atualizar foto da galeria
 export async function PATCH(request, { params }) {
+  if (!(await requireAdmin()))
+    return Response.json({ error: "Não autorizado" }, { status: 403 });
   try {
     const { id } = params;
     const body = await request.json();
+    if (body.image_url && !validImage(body.image_url))
+      return Response.json(
+        { error: "Imagem inválida. Use HTTPS ou JPG, PNG e WebP até 2 MB." },
+        { status: 400 },
+      );
+    if (body.video_url && !validVideo(body.video_url))
+      return Response.json(
+        { error: "Informe um link HTTPS válido para o vídeo." },
+        { status: 400 },
+      );
+    if (body.thumbnail_url && !validImage(body.thumbnail_url))
+      return Response.json({ error: "Capa inválida." }, { status: 400 });
+
     const { caption, display_order, active, image_url } = body;
 
     const updates = [];

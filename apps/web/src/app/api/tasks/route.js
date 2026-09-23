@@ -1,13 +1,5 @@
 import sql from "@/app/api/utils/sql";
-import { auth } from "@/auth";
-
-const ALLOWED_ADMINS = ["jean.dev.com@gmail.com", "estimesabrina15@gmail.com"];
-
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.email) return false;
-  return ALLOWED_ADMINS.includes(session.user.email.toLowerCase().trim());
-}
+import { requireAdmin } from "@/app/api/utils/admin";
 
 // GET - Listar tarefas (filtro opcional por category, done, priority)
 export async function GET(request) {
@@ -55,10 +47,23 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
+    if (
+      body.text !== undefined &&
+      (typeof body.text !== "string" ||
+        !body.text.trim() ||
+        body.text.length > 500)
+    )
+      return Response.json(
+        { error: "Informe uma tarefa de até 500 caracteres." },
+        { status: 400 },
+      );
     const { text, category, priority, dueDate } = body;
 
     if (!text) {
-      return Response.json({ error: "Texto da tarefa é obrigatório" }, { status: 400 });
+      return Response.json(
+        { error: "Texto da tarefa é obrigatório" },
+        { status: 400 },
+      );
     }
 
     const result = await sql`

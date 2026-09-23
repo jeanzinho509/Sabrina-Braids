@@ -1,13 +1,5 @@
 import sql from "@/app/api/utils/sql";
-import { auth } from "@/auth";
-
-const ALLOWED_ADMINS = ["jean.dev.com@gmail.com", "estimesabrina15@gmail.com"];
-
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.email) return false;
-  return ALLOWED_ADMINS.includes(session.user.email.toLowerCase().trim());
-}
+import { requireAdmin } from "@/app/api/utils/admin";
 
 // GET - Listar itens de estoque
 export async function GET() {
@@ -32,21 +24,38 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
+    if (
+      [body.quantity, body.minQuantity].some(
+        (value) =>
+          value !== undefined &&
+          (!Number.isInteger(Number(value)) || Number(value) < 0),
+      )
+    )
+      return Response.json(
+        { error: "As quantidades devem ser inteiros não negativos." },
+        { status: 400 },
+      );
     const { name, quantity, minQuantity, unit } = body;
 
     if (!name) {
-      return Response.json({ error: "Nome do produto é obrigatório" }, { status: 400 });
+      return Response.json(
+        { error: "Nome do produto é obrigatório" },
+        { status: 400 },
+      );
     }
 
     const result = await sql`
       INSERT INTO stock_items (name, quantity, min_quantity, unit)
-      VALUES (${name}, ${quantity || 0}, ${minQuantity || 1}, ${unit || "un"})
+      VALUES (${name}, ${quantity ?? 0}, ${minQuantity ?? 1}, ${unit || "un"})
       RETURNING *
     `;
 
     return Response.json({ item: result[0] }, { status: 201 });
   } catch (error) {
     console.error("Error creating stock item:", error);
-    return Response.json({ error: "Erro ao criar item de estoque" }, { status: 500 });
+    return Response.json(
+      { error: "Erro ao criar item de estoque" },
+      { status: 500 },
+    );
   }
 }

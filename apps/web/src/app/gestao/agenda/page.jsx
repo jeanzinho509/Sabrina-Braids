@@ -1,165 +1,294 @@
-"use client";
-
-import { GestaoLayout } from "../components/GestaoLayout";
-import { Plus, Search, Filter } from "lucide-react";
 import { useState } from "react";
+import { GestaoLayout } from "../components/GestaoLayout";
+import {
+  Card,
+  PageHeading,
+  QueryState,
+  Modal,
+  Field,
+  SaveButton,
+  inputClass,
+  buttonClass,
+  secondaryClass,
+} from "../components/UI";
+import { useApi, useSave } from "@/utils/useApi";
+import {
+  salonDate,
+  formatDate,
+  money,
+  appointmentStatuses,
+  whatsappLink,
+} from "@/utils/salon";
 
 export default function AgendaPage() {
-  const [appointments] = useState([
-    {
-      id: 1,
-      clientName: "Maria Silva",
-      phone: "(11) 99999-9999",
-      service: "Box Braids Média",
-      date: "06/08/2026",
-      time: "09:00",
-      duration: "4h",
-      price: "R$ 280,00",
-      deposit: true, // Sinal pago
-      status: "confirmed", // 🟢
-      notes: "Cabelo sensível, trazer pomada própria."
-    },
-    {
-      id: 2,
-      clientName: "Ana Clara",
-      phone: "(11) 98888-8888",
-      service: "Nagô com Desenho",
-      date: "06/08/2026",
-      time: "14:00",
-      duration: "2h",
-      price: "R$ 150,00",
-      deposit: false,
-      status: "pending", // 🟡
-      notes: "Primeira vez no salão."
-    },
-    {
-      id: 3,
-      clientName: "Beatriz Santos",
-      phone: "(11) 97777-7777",
-      service: "Knotless Longa",
-      date: "05/08/2026",
-      time: "10:00",
-      duration: "5h",
-      price: "R$ 350,00",
-      deposit: true,
-      status: "completed", // 🔵
-      notes: ""
-    },
-    {
-      id: 4,
-      clientName: "Carla Oliveira",
-      phone: "(11) 96666-6666",
-      service: "Goddess Braids",
-      date: "07/08/2026",
-      time: "08:00",
-      duration: "3h",
-      price: "R$ 300,00",
-      deposit: false,
-      status: "cancelled", // 🔴
-      notes: "Cancelou por motivo de saúde."
+  const [date, setDate] = useState(salonDate());
+  const [status, setStatus] = useState("");
+  const [search, setSearch] = useState("");
+  const [blocking, setBlocking] = useState(false);
+  const [completing, setCompleting] = useState(null);
+  const query = useApi(`/api/appointments?date=${date}&status=${status}`);
+  const blocks = useApi(`/api/time-blocks?date=${date}`);
+  const save = useSave();
+  const appointments = (query.data?.appointments || []).filter((item) =>
+    `${item.client_name} ${item.client_phone}`
+      .toLowerCase()
+      .includes(search.toLowerCase()),
+  );
+  async function block(event) {
+    event.preventDefault();
+    const body = Object.fromEntries(new FormData(event.currentTarget));
+    try {
+      await save.mutateAsync({ url: "/api/time-blocks", body });
+      setBlocking(false);
+    } catch {
+      /* keep open */
     }
-  ]);
-
-  const getStatusBadge = (status) => {
-    switch(status) {
-      case "confirmed":
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Confirmado</span>;
-      case "pending":
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800"><span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span> Aguardando</span>;
-      case "completed":
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"><span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Finalizado</span>;
-      case "cancelled":
-        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800"><span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Cancelado</span>;
-      default:
-        return null;
+  }
+  async function complete(event) {
+    event.preventDefault();
+    const amount = Number(new FormData(event.currentTarget).get("amount"));
+    try {
+      await save.mutateAsync({
+        url: `/api/appointments/${completing.id}`,
+        method: "PATCH",
+        body: { status: "completed", amount },
+      });
+      setCompleting(null);
+    } catch {
+      /* keep open */
     }
-  };
-
+  }
   return (
     <GestaoLayout>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h2 className="text-3xl font-semibold text-[#1a1513] tracking-tight">Agenda</h2>
-          <p className="text-[#8c6b52] mt-1 text-sm">Gerencie seus agendamentos e horários.</p>
-        </div>
-        <button className="bg-[#1a1513] text-[#ebd4c5] hover:bg-[#302621] px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Novo Agendamento
+      <PageHeading
+        title="Agenda"
+        description="Confirme atendimentos, conclua serviços e reserve seus intervalos."
+      >
+        <button className={secondaryClass} onClick={() => setBlocking(true)}>
+          Bloquear horário
         </button>
+        <a className={buttonClass} href="/agendar">
+          Novo agendamento
+        </a>
+      </PageHeading>
+      <div className="mb-5 grid gap-4 sm:grid-cols-3">
+        <Field label="Data">
+          <input
+            type="date"
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Status">
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+            className={inputClass}
+          >
+            <option value="">Todos</option>
+            {Object.entries(appointmentStatuses).map(([key, label]) => (
+              <option value={key} key={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Buscar cliente">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className={inputClass}
+            placeholder="Nome ou telefone"
+          />
+        </Field>
       </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-[#e8dcc8] overflow-hidden">
-        
-        {/* Toolbar */}
-        <div className="p-4 border-b border-[#e8dcc8] flex flex-col sm:flex-row gap-4 justify-between items-center bg-[#fcfbf9]">
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8c6b52]" />
-            <input 
-              type="text" 
-              placeholder="Buscar cliente..." 
-              className="w-full pl-9 pr-4 py-2 bg-white border border-[#e8dcc8] rounded-lg text-sm focus:outline-none focus:border-[#8c6b52] focus:ring-1 focus:ring-[#8c6b52] transition-shadow text-[#1a1513]"
-            />
-          </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-[#e8dcc8] rounded-lg text-sm font-medium text-[#5c4737] hover:bg-[#fcfbf9] transition-colors w-full sm:w-auto justify-center">
-            <Filter className="w-4 h-4" />
-            Filtros
-          </button>
+      <QueryState query={query} empty={!appointments.length}>
+        <div className="grid gap-4 xl:grid-cols-2">
+          {appointments.map((item) => (
+            <Card key={item.id}>
+              <div className="flex flex-wrap justify-between gap-2">
+                <h2 className="text-lg font-semibold">{item.client_name}</h2>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs ${item.status === "cancelled" ? "bg-red-50 text-red-800" : item.status === "completed" ? "bg-green-50 text-green-800" : "bg-[#f0e6da] text-[#5c4737]"}`}
+                >
+                  {appointmentStatuses[item.status]}
+                </span>
+              </div>
+              <p className="mt-2">
+                {item.service_name || "Modelo personalizado"}
+              </p>
+              <p className="mt-2 text-sm text-[#725744]">
+                {formatDate(item.appointment_date)} ·{" "}
+                {item.start_time.slice(0, 5)}–{item.end_time.slice(0, 5)}
+              </p>
+              <p className="my-2 text-sm">
+                {item.service_price != null
+                  ? money(item.service_price)
+                  : "Valor a combinar"}{" "}
+                · {item.client_phone}
+              </p>
+              {item.custom_model_description && (
+                <p className="my-3 text-sm">{item.custom_model_description}</p>
+              )}
+              {item.notes && (
+                <p className="my-3 text-sm text-[#725744]">{item.notes}</p>
+              )}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <a
+                  href={whatsappLink(
+                    `Olá, ${item.client_name}! Sobre seu agendamento na Sabrina Braids em ${formatDate(item.appointment_date)}, às ${item.start_time.slice(0, 5)}.`,
+                    item.client_phone,
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={secondaryClass}
+                >
+                  WhatsApp
+                </a>
+                {item.status === "pending" && (
+                  <button
+                    className={secondaryClass}
+                    disabled={save.isPending}
+                    onClick={() =>
+                      save.mutate({
+                        url: `/api/appointments/${item.id}`,
+                        method: "PATCH",
+                        body: { status: "confirmed" },
+                      })
+                    }
+                  >
+                    Confirmar
+                  </button>
+                )}
+                {["pending", "confirmed"].includes(item.status) && (
+                  <>
+                    <button
+                      className={buttonClass}
+                      disabled={save.isPending}
+                      onClick={() => setCompleting(item)}
+                    >
+                      Concluir
+                    </button>
+                    <button
+                      className={secondaryClass}
+                      disabled={save.isPending}
+                      onClick={() =>
+                        window.confirm("Cancelar este agendamento?") &&
+                        save.mutate({
+                          url: `/api/appointments/${item.id}`,
+                          method: "DELETE",
+                        })
+                      }
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                )}
+              </div>
+            </Card>
+          ))}
         </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#f0e6da]/50 text-[#5c4737] font-medium border-b border-[#e8dcc8]">
-              <tr>
-                <th className="px-6 py-4">Cliente</th>
-                <th className="px-6 py-4">Serviço</th>
-                <th className="px-6 py-4">Data e Hora</th>
-                <th className="px-6 py-4">Valor / Sinal</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#e8dcc8]">
-              {appointments.map((apt) => (
-                <tr key={apt.id} className="hover:bg-[#fcfbf9] transition-colors">
-                  <td className="px-6 py-4">
-                    <p className="font-semibold text-[#1a1513]">{apt.clientName}</p>
-                    <p className="text-xs text-[#8c6b52] mt-0.5">{apt.phone}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-[#1a1513] font-medium">{apt.service}</p>
-                    <p className="text-xs text-[#8c6b52] mt-0.5">{apt.duration}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-[#1a1513]">{apt.date}</p>
-                    <p className="text-xs text-[#8c6b52] mt-0.5">{apt.time}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-[#1a1513] font-medium">{apt.price}</p>
-                    {apt.deposit ? (
-                      <span className="inline-flex items-center px-2 py-0.5 mt-1 rounded text-[10px] font-bold bg-[#e8dcc8] text-[#5c4737]">Sinal Pago</span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 mt-1 rounded text-[10px] font-bold bg-gray-100 text-gray-500">Sem Sinal</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    {getStatusBadge(apt.status)}
-                    {apt.notes && (
-                      <p className="text-[11px] text-[#8c6b52] mt-2 max-w-[150px] truncate" title={apt.notes}>
-                        Obs: {apt.notes}
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="text-[#8c6b52] hover:text-[#1a1513] font-medium transition-colors text-sm">Editar</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-      </div>
+      </QueryState>
+      <Card className="mt-6">
+        <h2 className="mb-4 text-lg font-semibold">Horários bloqueados</h2>
+        <QueryState query={blocks} empty={!blocks.data?.timeBlocks.length}>
+          <ul className="space-y-3">
+            {blocks.data?.timeBlocks.map((item) => (
+              <li
+                key={item.id}
+                className="flex flex-wrap items-center justify-between gap-3 text-sm"
+              >
+                <span>
+                  {formatDate(item.block_date)} · {item.start_time.slice(0, 5)}–
+                  {item.end_time.slice(0, 5)} · {item.reason || "Indisponível"}
+                </span>
+                <button
+                  className={secondaryClass}
+                  disabled={save.isPending}
+                  onClick={() =>
+                    window.confirm("Liberar este horário?") &&
+                    save.mutate({
+                      url: `/api/time-blocks/${item.id}`,
+                      method: "DELETE",
+                    })
+                  }
+                >
+                  Liberar
+                </button>
+              </li>
+            ))}
+          </ul>
+        </QueryState>
+      </Card>
+      {blocking && (
+        <Modal
+          title="Bloquear horário"
+          onClose={() => setBlocking(false)}
+          busy={save.isPending}
+        >
+          <form onSubmit={block} className="space-y-4">
+            <Field label="Data">
+              <input
+                autoFocus
+                name="blockDate"
+                type="date"
+                required
+                defaultValue={date || salonDate()}
+                min={salonDate()}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Início">
+              <input
+                name="startTime"
+                type="time"
+                required
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Fim">
+              <input
+                name="endTime"
+                type="time"
+                required
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Motivo">
+              <input name="reason" maxLength={240} className={inputClass} />
+            </Field>
+            <SaveButton pending={save.isPending} />
+          </form>
+        </Modal>
+      )}
+      {completing && (
+        <Modal
+          title="Concluir atendimento"
+          onClose={() => setCompleting(null)}
+          busy={save.isPending}
+        >
+          <p className="mb-4 text-sm">
+            O valor será registrado uma única vez no financeiro como recebido
+            hoje.
+          </p>
+          <form onSubmit={complete} className="space-y-4">
+            <Field label="Valor recebido (R$)">
+              <input
+                autoFocus
+                name="amount"
+                required
+                type="number"
+                min="0.01"
+                step="0.01"
+                defaultValue={completing.service_price || ""}
+                className={inputClass}
+              />
+            </Field>
+            <SaveButton pending={save.isPending} />
+          </form>
+        </Modal>
+      )}
     </GestaoLayout>
   );
 }

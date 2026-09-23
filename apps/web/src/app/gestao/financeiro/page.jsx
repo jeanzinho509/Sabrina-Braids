@@ -1,130 +1,260 @@
-"use client";
-
-import { GestaoLayout } from "../components/GestaoLayout";
-import { Plus, ArrowUpCircle, ArrowDownCircle, DollarSign, Wallet } from "lucide-react";
 import { useState } from "react";
+import { GestaoLayout } from "../components/GestaoLayout";
+import {
+  Card,
+  PageHeading,
+  QueryState,
+  Modal,
+  Field,
+  SaveButton,
+  inputClass,
+  buttonClass,
+  secondaryClass,
+} from "../components/UI";
+import { useApi, useSave } from "@/utils/useApi";
+import { salonDate, formatDate, money } from "@/utils/salon";
 
 export default function FinanceiroPage() {
-  const [activeTab, setActiveTab] = useState("entradas");
-
-  const entradas = [
-    { id: 1, date: "06/08/2026", client: "Maria Silva", service: "Box Braids Média", method: "Pix", amount: 280.00 },
-    { id: 2, date: "05/08/2026", client: "Beatriz Santos", service: "Knotless Longa", method: "Cartão de Crédito", amount: 350.00 },
-  ];
-
-  const saidas = [
-    { id: 1, date: "05/08/2026", category: "Material", description: "Jumbo e Gelatina", amount: 150.00 },
-    { id: 2, date: "01/08/2026", category: "Aluguel", description: "Aluguel do espaço", amount: 800.00 },
-  ];
-
-  const metrics = [
-    { label: "Receita do Dia", value: "R$ 640,00", icon: DollarSign, color: "text-[#2e7d32]", bg: "bg-[#2e7d32]/10" },
-    { label: "Receita do Mês", value: "R$ 5.040,00", icon: ArrowUpCircle, color: "text-blue-600", bg: "bg-blue-100" },
-    { label: "Despesas do Mês", value: "R$ 1.250,00", icon: ArrowDownCircle, color: "text-red-600", bg: "bg-red-100" },
-    { label: "Lucro Estimado", value: "R$ 3.790,00", icon: Wallet, color: "text-[#8c6b52]", bg: "bg-[#8c6b52]/10" },
-  ];
-
+  const [month, setMonth] = useState(salonDate().slice(0, 7));
+  const [type, setType] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [year, monthNumber] = month.split("-");
+  const query = useApi(
+    `/api/financial-transactions?year=${year}&month=${monthNumber}`,
+  );
+  const save = useSave();
+  const transactions = (query.data?.transactions || []).filter(
+    (item) => !type || item.type === type,
+  );
+  async function submit(event) {
+    event.preventDefault();
+    const fields = new FormData(event.currentTarget);
+    const body = {
+      ...Object.fromEntries(fields),
+      type: editing.type,
+      amount: Number(fields.get("amount")),
+      paid: fields.get("paid") === "on",
+    };
+    try {
+      await save.mutateAsync({ url: "/api/financial-transactions", body });
+      setEditing(null);
+    } catch {
+      /* keep entered values */
+    }
+  }
   return (
     <GestaoLayout>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h2 className="text-3xl font-semibold text-[#1a1513] tracking-tight">Financeiro</h2>
-          <p className="text-[#8c6b52] mt-1 text-sm">Controle de caixa, receitas e despesas.</p>
-        </div>
-        <div className="flex gap-3">
-          <button className="bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Nova Despesa
-          </button>
-          <button className="bg-[#1a1513] text-[#ebd4c5] hover:bg-[#302621] px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Nova Entrada
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {metrics.map((m) => (
-          <div key={m.label} className="bg-white rounded-2xl p-6 shadow-sm border border-[#e8dcc8] flex items-center gap-4">
-            <div className={`p-4 rounded-xl ${m.bg}`}>
-              <m.icon className={`w-6 h-6 ${m.color}`} />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-[#5c4737]">{m.label}</p>
-              <h3 className="text-xl font-bold text-[#1a1513] mt-1">{m.value}</h3>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-[#e8dcc8] overflow-hidden">
-        {/* Tabs */}
-        <div className="flex border-b border-[#e8dcc8]">
-          <button 
-            onClick={() => setActiveTab("entradas")}
-            className={`flex-1 py-4 text-sm font-medium transition-colors ${activeTab === "entradas" ? "border-b-2 border-[#1a1513] text-[#1a1513]" : "text-[#8c6b52] hover:bg-[#fcfbf9]"}`}
+      <PageHeading
+        title="Financeiro"
+        description="Entradas, despesas e pagamentos do salão."
+      >
+        <button
+          className={secondaryClass}
+          onClick={() => setEditing({ type: "saida" })}
+        >
+          Nova despesa
+        </button>
+        <button
+          className={buttonClass}
+          onClick={() => setEditing({ type: "entrada" })}
+        >
+          Nova entrada
+        </button>
+      </PageHeading>
+      <div className="mb-5 flex flex-wrap gap-4">
+        <Field label="Mês">
+          <input
+            required
+            type="month"
+            value={month}
+            onChange={(event) =>
+              event.target.value && setMonth(event.target.value)
+            }
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Lançamentos">
+          <select
+            className={inputClass}
+            value={type}
+            onChange={(event) => setType(event.target.value)}
           >
-            Entradas (Receitas)
-          </button>
-          <button 
-            onClick={() => setActiveTab("saidas")}
-            className={`flex-1 py-4 text-sm font-medium transition-colors ${activeTab === "saidas" ? "border-b-2 border-[#1a1513] text-[#1a1513]" : "text-[#8c6b52] hover:bg-[#fcfbf9]"}`}
-          >
-            Saídas (Despesas)
-          </button>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          {activeTab === "entradas" ? (
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-[#f0e6da]/50 text-[#5c4737] font-medium border-b border-[#e8dcc8]">
-                <tr>
-                  <th className="px-6 py-4">Data</th>
-                  <th className="px-6 py-4">Cliente</th>
-                  <th className="px-6 py-4">Serviço</th>
-                  <th className="px-6 py-4">Pagamento</th>
-                  <th className="px-6 py-4 text-right">Valor</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#e8dcc8]">
-                {entradas.map((e) => (
-                  <tr key={e.id} className="hover:bg-[#fcfbf9] transition-colors">
-                    <td className="px-6 py-4 text-[#1a1513]">{e.date}</td>
-                    <td className="px-6 py-4 font-medium text-[#1a1513]">{e.client}</td>
-                    <td className="px-6 py-4 text-[#5c4737]">{e.service}</td>
-                    <td className="px-6 py-4 text-[#5c4737]">{e.method}</td>
-                    <td className="px-6 py-4 font-bold text-green-700 text-right">R$ {e.amount.toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-[#f0e6da]/50 text-[#5c4737] font-medium border-b border-[#e8dcc8]">
-                <tr>
-                  <th className="px-6 py-4">Data</th>
-                  <th className="px-6 py-4">Categoria</th>
-                  <th className="px-6 py-4">Descrição</th>
-                  <th className="px-6 py-4 text-right">Valor</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#e8dcc8]">
-                {saidas.map((s) => (
-                  <tr key={s.id} className="hover:bg-[#fcfbf9] transition-colors">
-                    <td className="px-6 py-4 text-[#1a1513]">{s.date}</td>
-                    <td className="px-6 py-4 text-[#1a1513]">
-                      <span className="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-md text-xs font-semibold">{s.category}</span>
-                    </td>
-                    <td className="px-6 py-4 text-[#5c4737]">{s.description}</td>
-                    <td className="px-6 py-4 font-bold text-red-700 text-right">- R$ {s.amount.toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+            <option value="">Todos</option>
+            <option value="entrada">Entradas</option>
+            <option value="saida">Saídas</option>
+          </select>
+        </Field>
       </div>
+      <QueryState query={query}>
+        {query.data && (
+          <>
+            <div className="mb-5 grid gap-4 sm:grid-cols-3">
+              {[
+                ["Entradas recebidas", query.data.summary.totalEntradas],
+                ["Despesas pagas", query.data.summary.totalSaidas],
+                ["Saldo realizado", query.data.summary.saldo],
+              ].map(([label, value]) => (
+                <Card key={label}>
+                  <p className="text-sm text-[#725744]">{label}</p>
+                  <p className="mt-2 text-2xl font-semibold">{money(value)}</p>
+                </Card>
+              ))}
+            </div>
+            <Card>
+              {!transactions.length ? (
+                <p className="text-sm text-[#725744]">
+                  Nenhum lançamento neste período.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="p-3">Data / vencimento</th>
+                        <th className="p-3">Descrição</th>
+                        <th className="p-3">Valor</th>
+                        <th className="p-3">Pagamento</th>
+                        <th className="p-3">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transactions.map((item) => (
+                        <tr className="border-b last:border-0" key={item.id}>
+                          <td className="whitespace-nowrap p-3">
+                            {formatDate(item.transaction_date)}
+                            {item.due_date && (
+                              <small className="block">
+                                Vence {formatDate(item.due_date)}
+                              </small>
+                            )}
+                          </td>
+                          <td className="min-w-40 p-3">
+                            <strong>{item.description || item.category}</strong>
+                            <p className="text-[#725744]">{item.category}</p>
+                          </td>
+                          <td
+                            className={`whitespace-nowrap p-3 font-semibold ${item.type === "entrada" ? "text-green-700" : "text-red-700"}`}
+                          >
+                            {item.type === "saida" ? "− " : "+ "}
+                            {money(item.amount)}
+                          </td>
+                          <td className="p-3">
+                            {item.paid ? "Pago" : "Pendente"}
+                            <small className="block">
+                              {item.payment_method}
+                            </small>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex gap-2">
+                              <button
+                                disabled={save.isPending}
+                                className={secondaryClass}
+                                onClick={() =>
+                                  save.mutate({
+                                    url: `/api/financial-transactions/${item.id}`,
+                                    method: "PUT",
+                                    body: { paid: !item.paid },
+                                  })
+                                }
+                              >
+                                {item.paid ? "Marcar pendente" : "Marcar pago"}
+                              </button>
+                              {!item.appointment_id && (
+                                <button
+                                  disabled={save.isPending}
+                                  className={secondaryClass}
+                                  onClick={() =>
+                                    window.confirm(
+                                      "Excluir este lançamento?",
+                                    ) &&
+                                    save.mutate({
+                                      url: `/api/financial-transactions/${item.id}`,
+                                      method: "DELETE",
+                                    })
+                                  }
+                                >
+                                  Excluir
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          </>
+        )}
+      </QueryState>
+      {editing && (
+        <Modal
+          title={editing.type === "entrada" ? "Nova entrada" : "Nova despesa"}
+          onClose={() => setEditing(null)}
+          busy={save.isPending}
+        >
+          <form onSubmit={submit} className="space-y-4">
+            <Field label="Descrição">
+              <input
+                autoFocus
+                name="description"
+                required
+                maxLength={240}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Categoria">
+              <input
+                name="category"
+                required
+                defaultValue={
+                  editing.type === "entrada" ? "Serviço" : "Material"
+                }
+                maxLength={80}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Valor (R$)">
+              <input
+                name="amount"
+                type="number"
+                min="0.01"
+                max="99999999"
+                step="0.01"
+                required
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Data do lançamento">
+              <input
+                name="transactionDate"
+                type="date"
+                defaultValue={salonDate()}
+                required
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Vencimento (opcional)">
+              <input name="dueDate" type="date" className={inputClass} />
+            </Field>
+            <Field label="Forma de pagamento">
+              <select name="paymentMethod" className={inputClass}>
+                <option>Pix</option>
+                <option>Dinheiro</option>
+                <option>Cartão</option>
+                <option>Transferência</option>
+                <option>Outro</option>
+              </select>
+            </Field>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="paid" defaultChecked />
+              Já foi pago
+            </label>
+            <SaveButton pending={save.isPending} />
+          </form>
+        </Modal>
+      )}
     </GestaoLayout>
   );
 }

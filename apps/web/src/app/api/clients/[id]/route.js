@@ -1,13 +1,5 @@
 import sql from "@/app/api/utils/sql";
-import { auth } from "@/auth";
-
-const ALLOWED_ADMINS = ["jean.dev.com@gmail.com", "estimesabrina15@gmail.com"];
-
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.email) return false;
-  return ALLOWED_ADMINS.includes(session.user.email.toLowerCase().trim());
-}
+import { requireAdmin } from "@/app/api/utils/admin";
 
 // GET - Detalhe de um cliente + histórico completo de atendimentos
 export async function GET(request, { params }) {
@@ -20,7 +12,10 @@ export async function GET(request, { params }) {
 
     const clientResult = await sql`SELECT * FROM clients WHERE id = ${id}`;
     if (clientResult.length === 0) {
-      return Response.json({ error: "Cliente não encontrado" }, { status: 404 });
+      return Response.json(
+        { error: "Cliente não encontrado" },
+        { status: 404 },
+      );
     }
 
     const history = await sql`
@@ -47,9 +42,11 @@ export async function PUT(request, { params }) {
   try {
     const { id } = params;
     const body = await request.json();
-    const { name, phone, email, instagram, birthday, notes } = body;
+    let { name, phone, email, instagram, birthday, notes } = body;
+    name = typeof name === "string" ? name.trim() : "";
+    phone = typeof phone === "string" ? phone.replace(/\D/g, "") : "";
 
-    if (!name || !phone) {
+    if (!name || !/^\d{10,13}$/.test(phone)) {
       return Response.json(
         { error: "Nome e telefone são obrigatórios" },
         { status: 400 },
@@ -57,7 +54,7 @@ export async function PUT(request, { params }) {
     }
 
     const duplicate = await sql`
-      SELECT id FROM clients WHERE phone = ${phone} AND id != ${id}
+      SELECT id FROM clients WHERE regexp_replace(phone, '[^0-9]', '', 'g') = ${phone} AND id != ${id}
     `;
     if (duplicate.length > 0) {
       return Response.json(
@@ -76,13 +73,19 @@ export async function PUT(request, { params }) {
     `;
 
     if (result.length === 0) {
-      return Response.json({ error: "Cliente não encontrado" }, { status: 404 });
+      return Response.json(
+        { error: "Cliente não encontrado" },
+        { status: 404 },
+      );
     }
 
     return Response.json({ client: result[0] });
   } catch (error) {
     console.error("Error updating client:", error);
-    return Response.json({ error: "Erro ao atualizar cliente" }, { status: 500 });
+    return Response.json(
+      { error: "Erro ao atualizar cliente" },
+      { status: 500 },
+    );
   }
 }
 
@@ -97,7 +100,10 @@ export async function DELETE(request, { params }) {
     const result = await sql`DELETE FROM clients WHERE id = ${id} RETURNING id`;
 
     if (result.length === 0) {
-      return Response.json({ error: "Cliente não encontrado" }, { status: 404 });
+      return Response.json(
+        { error: "Cliente não encontrado" },
+        { status: 404 },
+      );
     }
 
     return Response.json({ message: "Cliente removido com sucesso" });

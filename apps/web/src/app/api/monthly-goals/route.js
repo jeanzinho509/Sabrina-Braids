@@ -1,13 +1,5 @@
 import sql from "@/app/api/utils/sql";
-import { auth } from "@/auth";
-
-const ALLOWED_ADMINS = ["jean.dev.com@gmail.com", "estimesabrina15@gmail.com"];
-
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.email) return false;
-  return ALLOWED_ADMINS.includes(session.user.email.toLowerCase().trim());
-}
+import { requireAdmin } from "@/app/api/utils/admin";
 
 // GET - Buscar meta de um mês específico (default: mês atual)
 export async function GET(request) {
@@ -42,7 +34,16 @@ export async function POST(request) {
     const body = await request.json();
     const { year, month, targetAmount } = body;
 
-    if (!year || !month || !targetAmount) {
+    if (
+      !Number.isInteger(Number(year)) ||
+      Number(year) < 2000 ||
+      Number(year) > 2200 ||
+      !Number.isInteger(Number(month)) ||
+      Number(month) < 1 ||
+      Number(month) > 12 ||
+      !Number.isFinite(Number(targetAmount)) ||
+      Number(targetAmount) < 0
+    ) {
       return Response.json(
         { error: "Ano, mês e valor da meta são obrigatórios" },
         { status: 400 },

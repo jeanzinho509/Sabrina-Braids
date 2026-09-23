@@ -9,3 +9,8 @@
 .env
 .env.*
 !.env.example
+
+# Local verification output
+/.vitest/
+/test-results/
+/playwright-report/

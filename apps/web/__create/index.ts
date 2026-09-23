@@ -1,299 +1,114 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
-import nodeConsole from 'node:console';
-import { skipCSRFCheck } from '@auth/core';
-import Credentials from '@auth/core/providers/credentials';
-import { authHandler, initAuthConfig } from '@hono/auth-js';
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { hash, verify } from 'argon2';
-import { Hono } from 'hono';
-import { contextStorage, getContext } from 'hono/context-storage';
-import { cors } from 'hono/cors';
-import { proxy } from 'hono/proxy';
-import { bodyLimit } from 'hono/body-limit';
-import { requestId } from 'hono/request-id';
-import { createHonoServer } from 'react-router-hono-server/node';
-import { serializeError } from 'serialize-error';
-import ws from 'ws';
-import NeonAdapter from './adapter';
-import { getHTMLForErrorPage } from './get-html-for-error-page';
-import { isAuthAction } from './is-auth-action';
-import { API_BASENAME, api } from './route-builder';
+import Credentials from "@auth/core/providers/credentials";
+import { authHandler, initAuthConfig } from "@hono/auth-js";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import { verify } from "argon2";
+import { Hono } from "hono";
+import { contextStorage } from "hono/context-storage";
+import { bodyLimit } from "hono/body-limit";
+import { secureHeaders } from "hono/secure-headers";
+import { createHonoServer } from "react-router-hono-server/node";
+import ws from "ws";
+import NeonAdapter from "./adapter";
+import { isAuthAction } from "./is-auth-action";
+import { API_BASENAME, api } from "./route-builder";
+import { allowedAdmins } from "../src/app/api/utils/admin";
+
 neonConfig.webSocketConstructor = ws;
-
-const als = new AsyncLocalStorage<{ requestId: string }>();
-
-for (const method of ['log', 'info', 'warn', 'error', 'debug'] as const) {
-  const original = nodeConsole[method].bind(console);
-
-  console[method] = (...args: unknown[]) => {
-    const requestId = als.getStore()?.requestId;
-    if (requestId) {
-      original(`[traceId:${requestId}]`, ...args);
-    } else {
-      original(...args);
-    }
-  };
-}
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-const adapter = NeonAdapter(pool);
-
+const adapter = NeonAdapter(
+  new Pool({ connectionString: process.env.DATABASE_URL }),
+);
 const app = new Hono();
-
-app.use('*', requestId());
-
-app.use('*', (c, next) => {
-  const requestId = c.get('requestId');
-  return als.run({ requestId }, () => next());
-});
-
 app.use(contextStorage());
-
-app.onError((err, c) => {
-  if (c.req.method !== 'GET') {
-    return c.json(
-      {
-        error: 'An error occurred in your app',
-        details: serializeError(err),
-      },
-      500
-    );
-  }
-  return c.html(getHTMLForErrorPage(err), 200);
+app.use("*", secureHeaders({ crossOriginEmbedderPolicy: false }));
+app.use("/api/*", async (c, next) => {
+  c.header("Cache-Control", "no-store");
+  // Cookie-authenticated mutations must come from the same site.
+  const origin = c.req.header("origin");
+  const expected = new URL(process.env.AUTH_URL || c.req.url).origin;
+  if (
+    !["GET", "HEAD", "OPTIONS"].includes(c.req.method) &&
+    origin &&
+    origin !== expected
+  )
+    return c.json({ error: "Origem não autorizada." }, 403);
+  return next();
 });
-
-if (process.env.CORS_ORIGINS) {
-  app.use(
-    '/*',
-    cors({
-      origin: process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim()),
-    })
-  );
-}
-for (const method of ['post', 'put', 'patch'] as const) {
-  app[method](
-    '*',
-    bodyLimit({
-      maxSize: 4.5 * 1024 * 1024, // 4.5mb to match vercel limit
-      onError: (c) => {
-        return c.json({ error: 'Body size limit exceeded' }, 413);
-      },
-    })
-  );
-}
-
+app.use(
+  "*",
+  bodyLimit({
+    maxSize: 4 * 1024 * 1024,
+    onError: (c) =>
+      c.json({ error: "Arquivo muito grande. Use imagens de até 2 MB." }, 413),
+  }),
+);
+app.onError((error, c) => {
+  console.error(error);
+  return c.json({ error: "Não foi possível concluir a solicitação." }, 500);
+});
+app.get("/health", (c) => c.json({ status: "ok" }));
 if (process.env.AUTH_SECRET) {
   app.use(
-    '*',
-    initAuthConfig((c) => ({
-      secret: c.env.AUTH_SECRET,
-      pages: {
-        signIn: '/account/signin',
-        signOut: '/account/logout',
-      },
-      skipCSRFCheck,
-      session: {
-        strategy: 'jwt',
-      },
+    "*",
+    initAuthConfig(() => ({
+      secret: process.env.AUTH_SECRET,
+      trustHost: true,
+      pages: { signIn: "/account/signin", signOut: "/account/logout" },
+      session: { strategy: "jwt" },
+      useSecureCookies:
+        process.env.AUTH_URL?.startsWith("https:") ??
+        process.env.NODE_ENV === "production",
       callbacks: {
         session({ session, token }) {
-          if (token.sub) {
-            session.user.id = token.sub;
-          }
+          if (token.sub) session.user.id = token.sub;
           return session;
         },
       },
-      cookies: {
-        csrfToken: {
-          options: {
-            secure: true,
-            sameSite: 'none',
-          },
-        },
-        sessionToken: {
-          options: {
-            secure: true,
-            sameSite: 'none',
-          },
-        },
-        callbackUrl: {
-          options: {
-            secure: true,
-            sameSite: 'none',
-          },
-        },
-      },
       providers: [
-        // Dev-only provider for simulated social sign-in (Google, Facebook, etc.)
-        // Creates or finds a user by email without requiring a password.
-        ...(process.env.NEXT_PUBLIC_CREATE_ENV === 'DEVELOPMENT'
-          ? [
-              Credentials({
-                id: 'dev-social',
-                name: 'Development Social Sign-in',
-                credentials: {
-                  email: { label: 'Email', type: 'email' },
-                  name: { label: 'Name', type: 'text' },
-                  provider: { label: 'Provider', type: 'text' },
-                },
-                authorize: async (credentials) => {
-                  const { email, name, provider } = credentials;
-                  if (!email || typeof email !== 'string') return null;
-
-                  const existing = await adapter.getUserByEmail(email);
-                  if (existing) return existing;
-
-                  const allowedProviders = new Set(['google', 'facebook', 'twitter', 'apple']);
-                  const providerName =
-                    typeof provider === 'string' && allowedProviders.has(provider.toLowerCase())
-                      ? provider.toLowerCase()
-                      : 'google';
-                  const newUser = await adapter.createUser({
-                    emailVerified: null,
-                    email,
-                    name:
-                      typeof name === 'string' && name.length > 0
-                        ? name
-                        : undefined,
-                  });
-                  await adapter.linkAccount({
-                    type: 'oauth',
-                    userId: newUser.id,
-                    provider: providerName,
-                    providerAccountId: `dev-${newUser.id}`,
-                  });
-                  return newUser;
-                },
-              }),
-            ]
-          : []),
         Credentials({
-          id: 'credentials-signin',
-          name: 'Credentials Sign in',
+          id: "credentials-signin",
+          name: "E-mail e senha",
           credentials: {
-            email: {
-              label: 'Email',
-              type: 'email',
-            },
-            password: {
-              label: 'Password',
-              type: 'password',
-            },
+            email: { type: "email" },
+            password: { type: "password" },
           },
-          authorize: async (credentials) => {
-            const { email, password } = credentials;
-            if (!email || !password) {
+          async authorize(credentials) {
+            if (
+              typeof credentials.email !== "string" ||
+              typeof credentials.password !== "string" ||
+              credentials.password.length > 1024
+            )
               return null;
-            }
-            if (typeof email !== 'string' || typeof password !== 'string') {
-              return null;
-            }
-
-            // logic to verify if user exists
+            const email = credentials.email.trim().toLowerCase();
+            if (!allowedAdmins().includes(email)) return null;
             const user = await adapter.getUserByEmail(email);
-            if (!user) {
-              return null;
-            }
-            const matchingAccount = user.accounts.find(
-              (account) => account.provider === 'credentials'
+            const account = user?.accounts.find(
+              (account) => account.provider === "credentials",
             );
-            const accountPassword = matchingAccount?.password;
-            if (!accountPassword) {
+            if (
+              !user ||
+              !account?.password ||
+              !(await verify(account.password, credentials.password))
+            )
               return null;
-            }
-
-            const isValid = await verify(accountPassword, password);
-            if (!isValid) {
-              return null;
-            }
-
-            // return user object with the their profile data
-            return user;
-          },
-        }),
-        Credentials({
-          id: 'credentials-signup',
-          name: 'Credentials Sign up',
-          credentials: {
-            email: {
-              label: 'Email',
-              type: 'email',
-            },
-            password: {
-              label: 'Password',
-              type: 'password',
-            },
-            name: { label: 'Name', type: 'text' },
-            image: { label: 'Image', type: 'text', required: false },
-          },
-          authorize: async (credentials) => {
-            const { email, password, name, image } = credentials;
-            if (!email || !password) {
-              return null;
-            }
-            if (typeof email !== 'string' || typeof password !== 'string') {
-              return null;
-            }
-
-            // logic to verify if user exists
-            const user = await adapter.getUserByEmail(email);
-            if (!user) {
-              const newUser = await adapter.createUser({
-                emailVerified: null,
-                email,
-                name: typeof name === 'string' && name.length > 0 ? name : undefined,
-                image: typeof image === 'string' && image.length > 0 ? image : undefined,
-              });
-              await adapter.linkAccount({
-                extraData: {
-                  password: await hash(password),
-                },
-                type: 'credentials',
-                userId: newUser.id,
-                providerAccountId: newUser.id,
-                provider: 'credentials',
-              });
-              return newUser;
-            }
-            return null;
+            return {
+              id: String(user.id),
+              name: user.name,
+              email: user.email,
+              image: user.image,
+            };
           },
         }),
       ],
-    }))
+    })),
+  );
+  app.use("/api/auth/*", (c, next) =>
+    isAuthAction(c.req.path) ? authHandler()(c, next) : next(),
+  );
+} else {
+  app.get("/api/auth/session", (c) => c.json(null));
+  app.all("/api/auth/*", (c) =>
+    c.json({ error: "Autenticação indisponível." }, 503),
   );
 }
-app.all('/integrations/:path{.+}', async (c, next) => {
-  const queryParams = c.req.query();
-  const url = `${process.env.NEXT_PUBLIC_CREATE_BASE_URL ?? 'https://www.create.xyz'}/integrations/${c.req.param('path')}${Object.keys(queryParams).length > 0 ? `?${new URLSearchParams(queryParams).toString()}` : ''}`;
-
-  return proxy(url, {
-    method: c.req.method,
-    body: c.req.raw.body ?? null,
-    // @ts-expect-error -- duplex is accepted by the runtime even though the
-    // type declarations don't include it; required for streaming integrations
-    duplex: 'half',
-    redirect: 'manual',
-    headers: {
-      ...c.req.header(),
-      'X-Forwarded-For': process.env.NEXT_PUBLIC_CREATE_HOST,
-      'x-createxyz-host': process.env.NEXT_PUBLIC_CREATE_HOST,
-      Host: process.env.NEXT_PUBLIC_CREATE_HOST,
-      'x-createxyz-project-group-id': process.env.NEXT_PUBLIC_PROJECT_GROUP_ID,
-    },
-  });
-});
-
-app.use('/api/auth/*', async (c, next) => {
-  if (isAuthAction(c.req.path)) {
-    return authHandler()(c, next);
-  }
-  return next();
-});
 app.route(API_BASENAME, api);
-
-export default await createHonoServer({
-  app,
-  defaultLogger: false,
-});
+export default await createHonoServer({ app, defaultLogger: false });

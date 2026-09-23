@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 
 export default function HomePage() {
+  const [loadError, setLoadError] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [services, setServices] = useState([]);
   const [gallery, setGallery] = useState([]);
   const [videos, setVideos] = useState([]);
@@ -17,6 +19,10 @@ export default function HomePage() {
           fetch("/api/videos"),
         ]);
 
+        if (
+          ![servicesRes, galleryRes, videosRes].every((response) => response.ok)
+        )
+          throw new Error("Catálogo indisponível");
         const servicesData = await servicesRes.json();
         const galleryData = await galleryRes.json();
         const videosData = await videosRes.json();
@@ -26,6 +32,9 @@ export default function HomePage() {
         if (videosData.success) setVideos(videosData.videos);
       } catch (err) {
         console.error(err);
+        setLoadError(true);
+      } finally {
+        setLoading(false);
       }
     }
     fetchData();
@@ -70,11 +79,11 @@ export default function HomePage() {
       {/* Header */}
       <header className="border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
               Sabrina Tranças
             </h1>
-            <nav className="flex items-center gap-6">
+            <nav className="flex flex-wrap items-center gap-4">
               <a
                 href="#services"
                 className="text-sm text-gray-600 hover:text-gray-900"
@@ -89,7 +98,7 @@ export default function HomePage() {
               </a>
               <a
                 href="/agendar"
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                className="bg-[#5c4737] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#8c6b52] transition-colors"
               >
                 Agendar Agora
               </a>
@@ -116,7 +125,7 @@ export default function HomePage() {
               Mais de 5 anos de experiência criando penteados únicos que
               valorizam sua beleza natural.
             </p>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <a
                 href="/agendar"
                 className="bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors inline-flex items-center gap-2"
@@ -137,7 +146,7 @@ export default function HomePage() {
                 </svg>
               </a>
               <a
-                href="https://wa.me/5511999999999?text=Olá! Gostaria de saber mais sobre os serviços"
+                href="https://wa.me/5521993662669?text=Olá! Gostaria de saber mais sobre os serviços"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-white border border-gray-200 text-gray-900 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors inline-flex items-center gap-2"
@@ -156,6 +165,25 @@ export default function HomePage() {
         </div>
       </section>
 
+      {loadError && (
+        <div
+          role="alert"
+          className="mx-auto max-w-7xl px-4 py-6 text-sm text-[#725744]"
+        >
+          Não foi possível carregar o catálogo agora.{" "}
+          <button
+            onClick={() => window.location.reload()}
+            className="underline"
+          >
+            Tentar novamente
+          </button>{" "}
+          ou{" "}
+          <a href="https://wa.me/5521993662669" className="underline">
+            falar pelo WhatsApp
+          </a>
+          .
+        </div>
+      )}
       {/* Gallery Carousel Section - NEW */}
       {gallery.length > 0 && (
         <section className="py-20 bg-white">
@@ -323,6 +351,17 @@ export default function HomePage() {
             <p className="text-gray-600">Escolha o estilo perfeito para você</p>
           </div>
 
+          {loading && (
+            <p role="status" className="mb-6 text-gray-600">
+              Carregando serviços...
+            </p>
+          )}
+          {!loading && !loadError && !services.length && (
+            <p className="mb-6 text-gray-600">
+              Estamos preparando nosso catálogo. Fale conosco pelo WhatsApp para
+              conhecer os modelos.
+            </p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {services.map((service) => (
               <div
@@ -344,7 +383,7 @@ export default function HomePage() {
                     {service.description}
                   </p>
 
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                     <div className="flex items-center gap-2">
                       <span className="text-2xl font-semibold text-gray-900">
                         R$ {parseFloat(service.price).toFixed(2)}
@@ -497,7 +536,8 @@ export default function HomePage() {
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-gray-200 text-center text-sm text-gray-600">
-            © 2025 Sabrina Tranças. Todos os direitos reservados.
+            © {new Date().getFullYear()} Sabrina Tranças. Todos os direitos
+            reservados.
           </div>
         </div>
       </footer>

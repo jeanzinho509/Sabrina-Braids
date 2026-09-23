@@ -1,38 +1,55 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import useUser from "@/utils/useUser";
-
-const ALLOWED_EMAILS = ["jean.dev.com@gmail.com", "estimesabrina15@gmail.com"];
+import { useApi } from "@/utils/useApi";
 
 export function GestaoLayout({ children }) {
-  const { data: user, loading: userLoading } = useUser();
-
+  const { data: user, loading } = useUser();
+  const access = useApi("/api/admin/check-access");
+  const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
-    if (userLoading) return;
-    if (!user) {
-      window.location.href = "/account/signin";
-    } else if (!ALLOWED_EMAILS.includes(user.email?.toLowerCase().trim())) {
-      alert("Usuário sem acesso, procure admin");
-      window.location.href = "/";
-    }
-  }, [user, userLoading]);
-
-  if (userLoading || !user || !ALLOWED_EMAILS.includes(user.email?.toLowerCase().trim())) {
+    if (!loading && !user) window.location.replace("/account/signin");
+  }, [loading, user]);
+  if (loading || !user || access.isPending)
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f7f5f2]">
-        <p className="text-[#8c6b52] text-sm">Carregando...</p>
+        <p role="status">Carregando...</p>
       </div>
     );
-  }
-
+  if (access.isError || !access.data?.authorized)
+    return (
+      <div className="p-8">
+        <p role="alert">Não foi possível autorizar o acesso à gestão.</p>
+        <button className="mt-3 underline" onClick={() => access.refetch()}>
+          Tentar novamente
+        </button>
+        <a href="/" className="ml-4 underline">
+          Voltar ao site
+        </a>
+      </div>
+    );
   return (
-    <div className="flex min-h-screen bg-[#f7f5f2] font-inter">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="p-8">
-          {children}
-        </div>
-      </main>
+    <div className="min-h-screen bg-[#f7f5f2] font-inter text-[#1a1513] lg:flex">
+      <div className="flex items-center justify-between bg-[#1a1513] px-4 py-4 text-white lg:hidden">
+        <a href="/gestao" className="font-semibold">
+          Sabrina Braids
+        </a>
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-expanded={menuOpen}
+          aria-controls="gestao-menu"
+          className="rounded-lg border border-[#8c6b52] px-4 py-2"
+        >
+          {menuOpen ? "Fechar menu" : "Menu"}
+        </button>
+      </div>
+      <div
+        id="gestao-menu"
+        className={`${menuOpen ? "block" : "hidden"} lg:block lg:shrink-0`}
+      >
+        <Sidebar />
+      </div>
+      <main className="min-w-0 flex-1 p-4 sm:p-6 xl:p-8">{children}</main>
     </div>
   );
 }

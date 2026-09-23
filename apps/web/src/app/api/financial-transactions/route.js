@@ -1,13 +1,5 @@
 import sql from "@/app/api/utils/sql";
-import { auth } from "@/auth";
-
-const ALLOWED_ADMINS = ["jean.dev.com@gmail.com", "estimesabrina15@gmail.com"];
-
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.email) return false;
-  return ALLOWED_ADMINS.includes(session.user.email.toLowerCase().trim());
-}
+import { requireAdmin } from "@/app/api/utils/admin";
 
 // GET - Listar transações (filtros: type, month, year, paid)
 // Também devolve resumo (totais) já calculado, pra alimentar dashboard/financeiro
@@ -44,10 +36,10 @@ export async function GET(request) {
     const transactions = await sql(query, params);
 
     const totalEntradas = transactions
-      .filter((t) => t.type === "entrada")
+      .filter((t) => t.type === "entrada" && t.paid)
       .reduce((sum, t) => sum + Number(t.amount), 0);
     const totalSaidas = transactions
-      .filter((t) => t.type === "saida")
+      .filter((t) => t.type === "saida" && t.paid)
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
     return Response.json({
@@ -60,7 +52,10 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error("Error fetching transactions:", error);
-    return Response.json({ error: "Erro ao buscar transações" }, { status: 500 });
+    return Response.json(
+      { error: "Erro ao buscar transações" },
+      { status: 500 },
+    );
   }
 }
 
@@ -72,6 +67,14 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
+    if (
+      body.amount !== undefined &&
+      (!Number.isFinite(Number(body.amount)) || Number(body.amount) <= 0)
+    )
+      return Response.json(
+        { error: "Informe um valor maior que zero." },
+        { status: 400 },
+      );
     const {
       type,
       category,
@@ -86,10 +89,20 @@ export async function POST(request) {
     } = body;
 
     if (!type || !["entrada", "saida"].includes(type)) {
-      return Response.json({ error: "Tipo inválido (entrada ou saida)" }, { status: 400 });
+      return Response.json(
+        { error: "Tipo inválido (entrada ou saida)" },
+        { status: 400 },
+      );
     }
-    if (!category || !amount) {
-      return Response.json({ error: "Categoria e valor são obrigatórios" }, { status: 400 });
+    if (
+      !category?.trim() ||
+      !Number.isFinite(Number(amount)) ||
+      Number(amount) <= 0
+    ) {
+      return Response.json(
+        { error: "Categoria e valor são obrigatórios" },
+        { status: 400 },
+      );
     }
 
     const result = await sql`
