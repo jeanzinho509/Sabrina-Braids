@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiRequest } from "@/utils/useApi";
+import { money } from "@/utils/salon";
 
 export default function HomePage() {
-  const [loadError, setLoadError] = useState(false);
+  const [loadErrors, setLoadErrors] = useState([]);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [loading, setLoading] = useState(true);
   const [services, setServices] = useState([]);
   const [gallery, setGallery] = useState([]);
@@ -11,34 +14,32 @@ export default function HomePage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
+    const controller = new AbortController();
     async function fetchData() {
-      try {
-        const [servicesRes, galleryRes, videosRes] = await Promise.all([
-          fetch("/api/services"),
-          fetch("/api/gallery"),
-          fetch("/api/videos"),
-        ]);
-
-        if (
-          ![servicesRes, galleryRes, videosRes].every((response) => response.ok)
-        )
-          throw new Error("Catálogo indisponível");
-        const servicesData = await servicesRes.json();
-        const galleryData = await galleryRes.json();
-        const videosData = await videosRes.json();
-
-        if (servicesData.services) setServices(servicesData.services);
-        if (galleryData.success) setGallery(galleryData.gallery);
-        if (videosData.success) setVideos(videosData.videos);
-      } catch (err) {
-        console.error(err);
-        setLoadError(true);
-      } finally {
-        setLoading(false);
-      }
+      setLoading(true);
+      const sections = [
+        ["services", setServices],
+        ["gallery", setGallery],
+        ["videos", setVideos],
+      ];
+      const results = await Promise.allSettled(
+        sections.map(([key]) =>
+          apiRequest(`/api/${key}`, { signal: controller.signal }),
+        ),
+      );
+      if (controller.signal.aborted) return;
+      const errors = [];
+      results.forEach((result, index) => {
+        const [key, setItems] = sections[index];
+        if (result.status === "fulfilled") setItems(result.value[key] || []);
+        else errors.push(key);
+      });
+      setLoadErrors(errors);
+      setLoading(false);
     }
     fetchData();
-  }, []);
+    return () => controller.abort();
+  }, [loadAttempt]);
 
   // Auto-avançar carrossel a cada 5 segundos
   useEffect(() => {
@@ -165,14 +166,17 @@ export default function HomePage() {
         </div>
       </section>
 
-      {loadError && (
+      {loadErrors.length > 0 && (
         <div
           role="alert"
           className="mx-auto max-w-7xl px-4 py-6 text-sm text-[#725744]"
         >
-          Não foi possível carregar o catálogo agora.{" "}
+          {loadErrors.includes("services")
+            ? "Não foi possível carregar os serviços agora."
+            : "Algumas fotos ou vídeos não puderam ser carregados."}{" "}
           <button
-            onClick={() => window.location.reload()}
+            disabled={loading}
+            onClick={() => setLoadAttempt((attempt) => attempt + 1)}
             className="underline"
           >
             Tentar novamente
@@ -356,7 +360,7 @@ export default function HomePage() {
               Carregando serviços...
             </p>
           )}
-          {!loading && !loadError && !services.length && (
+          {!loading && !loadErrors.includes("services") && !services.length && (
             <p className="mb-6 text-gray-600">
               Estamos preparando nosso catálogo. Fale conosco pelo WhatsApp para
               conhecer os modelos.
@@ -369,11 +373,17 @@ export default function HomePage() {
                 className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-gray-300 transition-colors"
               >
                 <div className="aspect-[4/3] relative bg-gray-100">
-                  <img
-                    src={service.image_url}
-                    alt={service.name}
-                    className="w-full h-full object-cover"
-                  />
+                  {service.image_url ? (
+                    <img
+                      src={service.image_url}
+                      alt={service.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center bg-[#f0e6da] px-6 text-center text-lg font-semibold text-[#725744]">
+                      {service.name}
+                    </div>
+                  )}
                 </div>
                 <div className="p-6">
                   <h4 className="text-lg font-semibold text-gray-900 mb-2">
@@ -386,7 +396,7 @@ export default function HomePage() {
                   <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                     <div className="flex items-center gap-2">
                       <span className="text-2xl font-semibold text-gray-900">
-                        R$ {parseFloat(service.price).toFixed(2)}
+                        {money(service.price)}
                       </span>
                     </div>
                     <div className="bg-blue-50 text-blue-600 rounded-full px-3 py-1 text-xs font-medium inline-flex items-center gap-1.5">

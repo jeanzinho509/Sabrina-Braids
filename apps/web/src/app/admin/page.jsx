@@ -188,16 +188,14 @@ function Editor({ tab, item, onClose }) {
               </div>
             )}
             {uploading && <p role="status">Preparando imagem...</p>}
-            {item.id && (
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  name="active"
-                  type="checkbox"
-                  defaultChecked={item.active !== false}
-                />
-                Exibir no site
-              </label>
-            )}
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                name="active"
+                type="checkbox"
+                defaultChecked={item.active !== false}
+              />
+              Exibir no site
+            </label>
           </>
         )}
         {tab === "videos" && (

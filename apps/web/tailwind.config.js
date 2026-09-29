@@ -600,7 +600,7 @@ module.exports = {
 				inspiration: 'Inspiration',
 				'instrument-sans': 'Instrument Sans',
 				'instrument-serif': 'Instrument Serif',
-				inter: 'Inter',
+				inter: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
 				'inter-tight': 'Inter Tight',
 				'irish-grover': 'Irish Grover',
 				'island-moments': 'Island Moments',

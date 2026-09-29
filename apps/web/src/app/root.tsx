@@ -8,11 +8,22 @@ import {
   ScrollRestoration,
   isRouteErrorResponse,
   useRouteError,
+  useLoaderData,
 } from "react-router";
 import { SessionProvider } from "@hono/auth-js/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import "./global.css";
+
+export function loader() {
+  return {
+    localDatabase: process.env.DATABASE_DRIVER === "local",
+    setupHelp: import.meta.env.DEV || process.env.DATABASE_DRIVER === "local",
+    missingConfiguration:
+      !process.env.AUTH_SECRET ||
+      (process.env.DATABASE_DRIVER !== "local" && !process.env.DATABASE_URL),
+  };
+}
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
@@ -58,6 +69,7 @@ export function ErrorBoundary() {
   );
 }
 export default function App() {
+  const setup = useLoaderData<typeof loader>();
   const [client] = useState(
     () =>
       new QueryClient({
@@ -67,6 +79,28 @@ export default function App() {
   return (
     <SessionProvider>
       <QueryClientProvider client={client}>
+        {setup.localDatabase && (
+          <div
+            role="note"
+            className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-950"
+          >
+            Ambiente local de testes · serviços e preços de demonstração.{" "}
+            <a href="/admin" className="font-semibold underline">
+              Abrir administração
+            </a>
+          </div>
+        )}
+        {setup.setupHelp && setup.missingConfiguration && (
+          <div
+            role="alert"
+            className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-950"
+          >
+            Configuração local pendente. Pare o servidor e execute{" "}
+            <code>npm run doctor</code> em <code>apps/web</code>. Para preparar
+            um ambiente de testes completo, use <code>npm run setup:local</code>
+            .
+          </div>
+        )}
         <Outlet />
       </QueryClientProvider>
     </SessionProvider>

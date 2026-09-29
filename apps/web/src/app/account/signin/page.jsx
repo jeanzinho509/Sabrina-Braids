@@ -1,7 +1,21 @@
 import { useState } from "react";
 import { signIn } from "@hono/auth-js/react";
 import { inputClass, buttonClass } from "@/app/gestao/components/UI";
+import { useQuery } from "@tanstack/react-query";
+import { useRouteLoaderData, useSearchParams } from "react-router";
+import { apiRequest } from "@/utils/useApi";
 export default function SignInPage() {
+  const setup = useRouteLoaderData("root");
+  const [params] = useSearchParams();
+  const requested = params.get("callbackUrl") || "/gestao";
+  const callbackUrl = /^\/(admin|gestao)(\/|\?|$)/.test(requested)
+    ? requested
+    : "/gestao";
+  const status = useQuery({
+    queryKey: ["system-status"],
+    queryFn: () => apiRequest("/api/system/status"),
+    retry: false,
+  });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   async function submit(event) {
@@ -10,15 +24,24 @@ export default function SignInPage() {
     setLoading(true);
     const fields = new FormData(event.currentTarget);
     try {
+      // The auth client redirects to a JSON endpoint if providers are missing.
+      // Check first so configuration/network errors remain on this page.
+      const providers = await apiRequest("/api/auth/providers");
+      if (!providers["credentials-signin"])
+        throw new Error("A autenticação ainda não foi configurada.");
       const result = await signIn("credentials-signin", {
         email: fields.get("email").trim().toLowerCase(),
         password: fields.get("password"),
-        callbackUrl: "/gestao",
+        callbackUrl,
         redirect: false,
       });
-      if (!result || result.error)
-        throw new Error("E-mail ou senha inválidos. Confira seus dados.");
-      window.location.assign("/gestao");
+      if (!result?.ok || result.error)
+        throw new Error(
+          result?.error === "CredentialsSignin"
+            ? "E-mail ou senha inválidos. Confira seus dados."
+            : "Não foi possível entrar. Confira a configuração do acesso e tente novamente.",
+        );
+      window.location.assign(callbackUrl);
     } catch (error) {
       setError(error.message || "Não foi possível entrar. Tente novamente.");
     } finally {
@@ -38,6 +61,38 @@ export default function SignInPage() {
         <p className="text-sm text-[#725744]">
           Entre para cuidar da agenda e da gestão do salão.
         </p>
+        {status.isPending && (
+          <p role="status" className="text-sm">
+            Verificando acesso...
+          </p>
+        )}
+        {(status.isError || (status.data && !status.data.ready)) && (
+          <div
+            role="alert"
+            className="space-y-3 rounded-lg bg-amber-50 p-4 text-sm text-amber-950"
+          >
+            <p>
+              {status.isError
+                ? "Não foi possível verificar o acesso. Confira se o servidor está funcionando."
+                : status.data.message}
+            </p>
+            {setup?.setupHelp && (
+              <p>
+                Pare o servidor e execute <code>npm run doctor</code> em{" "}
+                <code>apps/web</code>. Para testar sem Neon, execute{" "}
+                <code>npm run setup:local</code>, escolha seu e-mail e senha e
+                reinicie o site.
+              </p>
+            )}
+            <button
+              type="button"
+              className="underline"
+              onClick={() => status.refetch()}
+            >
+              Verificar novamente
+            </button>
+          </div>
+        )}
         {error && (
           <p
             role="alert"
@@ -67,7 +122,10 @@ export default function SignInPage() {
             className={`${inputClass} mt-2`}
           />
         </label>
-        <button disabled={loading} className={`${buttonClass} w-full`}>
+        <button
+          disabled={loading || !status.data?.ready}
+          className={`${buttonClass} w-full`}
+        >
           {loading ? "Entrando..." : "Entrar"}
         </button>
         <p className="text-xs text-[#725744]">

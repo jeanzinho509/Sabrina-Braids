@@ -8,7 +8,10 @@ export function GestaoLayout({ children }) {
   const access = useApi("/api/admin/check-access");
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
-    if (!loading && !user) window.location.replace("/account/signin");
+    if (!loading && !user)
+      window.location.replace(
+        `/account/signin?callbackUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`,
+      );
   }, [loading, user]);
   if (loading || !user || access.isPending)
     return (

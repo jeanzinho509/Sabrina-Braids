@@ -64,8 +64,8 @@ export async function POST(request) {
     }
 
     const result = await sql`
-      INSERT INTO services (name, description, price, duration_minutes, image_url)
-      VALUES (${name}, ${description || null}, ${price}, ${duration_minutes}, ${image_url || null})
+      INSERT INTO services (name, description, price, duration_minutes, image_url, active)
+      VALUES (${name}, ${description || null}, ${price}, ${duration_minutes}, ${image_url || null}, ${body.active !== false})
       RETURNING *
     `;
 

@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { salonDate, whatsappLink, money } from "@/utils/salon";
 import { apiRequest } from "@/utils/useApi";
 import useUpload from "@/utils/useUpload";
+import { useQuery } from "@tanstack/react-query";
 
 export default function AgendarPage() {
   const [whatsappUrl, setWhatsappUrl] = useState("");
-  const [servicesLoading, setServicesLoading] = useState(true);
+  const appliedServiceFromUrl = useRef(false);
   const [step, setStep] = useState(1);
-  const [services, setServices] = useState([]);
   const [selectedService, setSelectedService] = useState(null);
   const [isCustomModel, setIsCustomModel] = useState(false);
   const [customModelImage, setCustomModelImage] = useState("");
@@ -17,7 +17,6 @@ export default function AgendarPage() {
   const [uploadedImagePreview, setUploadedImagePreview] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
-  const [availableTimes, setAvailableTimes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
@@ -30,34 +29,41 @@ export default function AgendarPage() {
     notes: "",
   });
 
-  useEffect(() => {
-    apiRequest("/api/services")
-      .then((data) => setServices(data.services || []))
-      .catch((error) => setError(error.message))
-      .finally(() => setServicesLoading(false));
-  }, []);
-
+  const catalog = useQuery({
+    queryKey: ["salon", "/api/services"],
+    queryFn: ({ signal }) => apiRequest("/api/services", { signal }),
+    retry: false,
+  });
+  const services = catalog.data?.services || [];
+  const servicesLoading = catalog.isPending;
+  const duration = isCustomModel ? 300 : selectedService?.duration_minutes;
+  const availability = useQuery({
+    queryKey: ["availability", selectedDate, duration],
+    queryFn: ({ signal }) =>
+      apiRequest(
+        `/api/appointments/available-times?date=${selectedDate}&duration=${duration}`,
+        { signal },
+      ),
+    enabled: Boolean(selectedDate && duration),
+    retry: false,
+  });
+  const availableTimes = availability.data?.availableSlots || [];
   useEffect(() => {
     setSelectedTime("");
-    setAvailableTimes([]);
-    if (!(selectedService || isCustomModel) || !selectedDate) return;
-    const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-    const duration = isCustomModel ? 300 : selectedService.duration_minutes;
-    apiRequest(
-      `/api/appointments/available-times?date=${selectedDate}&duration=${duration}`,
-      { signal: controller.signal },
-    )
-      .then((data) => setAvailableTimes(data.availableSlots || []))
-      .catch((error) => {
-        if (error.name !== "AbortError") setError(error.message);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [selectedService, isCustomModel, selectedDate]);
+  }, [selectedDate, duration]);
+  useEffect(() => {
+    if (!catalog.data || appliedServiceFromUrl.current) return;
+    appliedServiceFromUrl.current = true;
+    const id = new URLSearchParams(window.location.search).get("service");
+    const service = catalog.data.services?.find(
+      (item) => String(item.id) === id,
+    );
+    if (service) {
+      setSelectedService(service);
+      setIsCustomModel(false);
+      setStep(2);
+    }
+  }, [catalog.data]);
 
   const handleServiceSelect = (service) => {
     setSelectedService(service);
@@ -257,7 +263,25 @@ export default function AgendarPage() {
                 Carregando serviços...
               </p>
             )}
-            {!servicesLoading && !services.length && (
+            {catalog.isError && (
+              <div
+                role="alert"
+                className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+              >
+                <p>
+                  Não foi possível carregar os serviços. Tente novamente ou fale
+                  conosco pelo WhatsApp.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => catalog.refetch()}
+                  className="mt-2 underline"
+                >
+                  Tentar carregar serviços novamente
+                </button>
+              </div>
+            )}
+            {catalog.isSuccess && !services.length && (
               <p className="mb-4 text-sm text-gray-600">
                 O catálogo ainda não está disponível. Você pode solicitar um
                 modelo personalizado ou falar conosco pelo{" "}
@@ -290,7 +314,7 @@ export default function AgendarPage() {
 
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className="text-2xl font-semibold text-gray-900">
-                      R$ {parseFloat(service.price).toFixed(2)}
+                      {money(service.price)}
                     </span>
                     <div className="bg-blue-50 text-blue-600 rounded-full px-3 py-1 text-xs font-medium">
                       {Math.floor(service.duration_minutes / 60)}h{" "}
@@ -438,10 +462,11 @@ export default function AgendarPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Data
+                  <span id="booking-date-label">Data</span>
                 </label>
                 <input
                   type="date"
+                  aria-labelledby="booking-date-label"
                   value={selectedDate}
                   onChange={handleDateSelect}
                   min={minDate}
@@ -458,13 +483,32 @@ export default function AgendarPage() {
                   <label className="block text-sm font-medium text-gray-900 mb-2">
                     Horário disponível
                   </label>
-                  {loading ? (
-                    <div className="text-sm text-gray-600">
+                  {availability.isFetching ? (
+                    <div role="status" className="text-sm text-gray-600">
                       Carregando horários...
                     </div>
-                  ) : availableTimes.length === 0 ? (
-                    <div className="text-sm text-gray-600">
-                      Nenhum horário disponível nesta data
+                  ) : availability.isError ? (
+                    <div
+                      role="alert"
+                      className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+                    >
+                      <p>
+                        Não foi possível consultar os horários. Isso não
+                        significa que a agenda está cheia.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => availability.refetch()}
+                        className="mt-2 underline"
+                      >
+                        Consultar horários novamente
+                      </button>
+                    </div>
+                  ) : availability.isSuccess && availableTimes.length === 0 ? (
+                    <div role="status" className="text-sm text-gray-600">
+                      {new Date(`${selectedDate}T12:00:00Z`).getUTCDay() === 6
+                        ? "O salão fecha aos sábados. Escolha outra data."
+                        : "Não há horários livres para a duração deste serviço nesta data. Escolha outra data."}
                     </div>
                   ) : (
                     <div className="grid grid-cols-3 gap-2">

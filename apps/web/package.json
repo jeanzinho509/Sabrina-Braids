@@ -6,10 +6,13 @@
     "dev": "react-router dev",
     "typecheck": "react-router typegen && tsc --noEmit",
     "build": "react-router build",
-    "start": "node ./build/server/index.js",
+    "start": "node scripts/start.mjs",
     "test": "vitest run",
-    "db:migrate": "node --env-file=.env scripts/migrate.mjs",
-    "admin:create": "node --env-file=.env scripts/create-admin.mjs"
+    "db:migrate": "node scripts/migrate.mjs",
+    "admin:create": "node scripts/create-admin.mjs",
+    "setup:local": "node scripts/setup-local.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "test:flows": "node scripts/test-flows.mjs"
   },
   "dependencies": {
     "@auth/core": "^0.37.2",
@@ -66,7 +69,8 @@
     "vaul": "^1.1.2",
     "ws": "^8.18.2",
     "yup": "^1.6.1",
-    "zustand": "^5.0.3"
+    "zustand": "^5.0.3",
+    "@electric-sql/pglite": "^0.5.8"
   },
   "devDependencies": {
     "@babel/core": "^7.27.1",
@@ -75,7 +79,6 @@
     "@babel/preset-typescript": "^7.27.1",
     "@babel/traverse": "^7.27.1",
     "@babel/types": "^7.27.1",
-    "@electric-sql/pglite": "^0.5.8",
     "@react-router/dev": "^7.6.0",
     "@tailwindcss/vite": "^4.1.4",
     "@testing-library/jest-dom": "^6.6.4",
