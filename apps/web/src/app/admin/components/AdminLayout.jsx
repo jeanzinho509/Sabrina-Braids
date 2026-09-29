@@ -3,7 +3,7 @@ import { Sidebar } from "./Sidebar";
 import useUser from "@/utils/useUser";
 import { useApi } from "@/utils/useApi";
 
-export function GestaoLayout({ children }) {
+export function AdminLayout({ children }) {
   const { data: user, loading } = useUser();
   const access = useApi("/api/admin/check-access");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -22,7 +22,7 @@ export function GestaoLayout({ children }) {
   if (access.isError || !access.data?.authorized)
     return (
       <div className="p-8">
-        <p role="alert">Não foi possível autorizar o acesso à gestão.</p>
+        <p role="alert">Não foi possível autorizar o acesso ao painel.</p>
         <button className="mt-3 underline" onClick={() => access.refetch()}>
           Tentar novamente
         </button>
@@ -34,7 +34,7 @@ export function GestaoLayout({ children }) {
   return (
     <div className="min-h-screen bg-[#f7f5f2] font-inter text-[#1a1513] lg:flex">
       <div className="flex items-center justify-between bg-[#1a1513] px-4 py-4 text-white lg:hidden">
-        <a href="/gestao" className="font-semibold">
+        <a href="/admin" className="font-semibold">
           Sabrina Braids
         </a>
         <button

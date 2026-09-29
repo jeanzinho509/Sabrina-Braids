@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { GestaoLayout } from "../components/GestaoLayout";
+import { AdminLayout } from "@/app/admin/components/AdminLayout";
 import {
   Card,
   PageHeading,
@@ -10,7 +10,7 @@ import {
   inputClass,
   buttonClass,
   secondaryClass,
-} from "../components/UI";
+} from "@/app/admin/components/UI";
 import { useApi, useSave } from "@/utils/useApi";
 
 export default function EstoquePage() {
@@ -43,7 +43,7 @@ export default function EstoquePage() {
     }
   }
   return (
-    <GestaoLayout>
+    <AdminLayout>
       <PageHeading
         title="Estoque"
         description="Controle os materiais e saiba o que precisa repor."
@@ -153,6 +153,6 @@ export default function EstoquePage() {
           </form>
         </Modal>
       )}
-    </GestaoLayout>
+    </AdminLayout>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { GestaoLayout } from "../components/GestaoLayout";
+import { AdminLayout } from "@/app/admin/components/AdminLayout";
 import {
   Card,
   PageHeading,
@@ -10,7 +10,7 @@ import {
   inputClass,
   buttonClass,
   secondaryClass,
-} from "../components/UI";
+} from "@/app/admin/components/UI";
 import { useApi, useSave } from "@/utils/useApi";
 import { formatDate, appointmentStatuses } from "@/utils/salon";
 
@@ -69,7 +69,7 @@ export default function ClientesPage() {
     }
   };
   return (
-    <GestaoLayout>
+    <AdminLayout>
       <PageHeading
         title="Clientes"
         description="Contatos, preferências e histórico de atendimentos."
@@ -192,6 +192,6 @@ export default function ClientesPage() {
           </form>
         </Modal>
       )}
-    </GestaoLayout>
+    </AdminLayout>
   );
 }

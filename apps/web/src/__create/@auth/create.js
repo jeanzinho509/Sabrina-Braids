@@ -1,3 +1,4 @@
+import { requestOrigin } from "../../server/origin.mjs";
 import { getToken } from "@auth/core/jwt";
 import { getContext } from "hono/context-storage";
 
@@ -8,7 +9,7 @@ export default function CreateAuth() {
     const token = await getToken({
       req: c.req.raw,
       secret: process.env.AUTH_SECRET,
-      secureCookie: (process.env.AUTH_URL || c.req.url).startsWith("https"),
+      secureCookie: requestOrigin(c.req.url).startsWith("https:"),
     });
     if (token) {
       return {

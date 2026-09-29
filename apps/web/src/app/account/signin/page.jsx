@@ -1,22 +1,23 @@
 import { useState } from "react";
-import { signIn } from "@hono/auth-js/react";
-import { inputClass, buttonClass } from "@/app/gestao/components/UI";
+import { adminDestination, signInWithPassword } from "@/utils/authClient";
+import { inputClass, buttonClass } from "@/app/admin/components/UI";
 import { useQuery } from "@tanstack/react-query";
 import { useRouteLoaderData, useSearchParams } from "react-router";
 import { apiRequest } from "@/utils/useApi";
 export default function SignInPage() {
   const setup = useRouteLoaderData("root");
   const [params] = useSearchParams();
-  const requested = params.get("callbackUrl") || "/gestao";
-  const callbackUrl = /^\/(admin|gestao)(\/|\?|$)/.test(requested)
-    ? requested
-    : "/gestao";
+  const callbackUrl = adminDestination(params.get("callbackUrl"));
   const status = useQuery({
     queryKey: ["system-status"],
     queryFn: () => apiRequest("/api/system/status"),
     retry: false,
   });
-  const [error, setError] = useState("");
+  const [error, setError] = useState(
+    params.has("error")
+      ? "Não foi possível entrar. Confira seus dados e a configuração do acesso."
+      : "",
+  );
   const [loading, setLoading] = useState(false);
   async function submit(event) {
     event.preventDefault();
@@ -24,23 +25,11 @@ export default function SignInPage() {
     setLoading(true);
     const fields = new FormData(event.currentTarget);
     try {
-      // The auth client redirects to a JSON endpoint if providers are missing.
-      // Check first so configuration/network errors remain on this page.
-      const providers = await apiRequest("/api/auth/providers");
-      if (!providers["credentials-signin"])
-        throw new Error("A autenticação ainda não foi configurada.");
-      const result = await signIn("credentials-signin", {
+      await signInWithPassword({
         email: fields.get("email").trim().toLowerCase(),
         password: fields.get("password"),
         callbackUrl,
-        redirect: false,
       });
-      if (!result?.ok || result.error)
-        throw new Error(
-          result?.error === "CredentialsSignin"
-            ? "E-mail ou senha inválidos. Confira seus dados."
-            : "Não foi possível entrar. Confira a configuração do acesso e tente novamente.",
-        );
       window.location.assign(callbackUrl);
     } catch (error) {
       setError(error.message || "Não foi possível entrar. Tente novamente.");

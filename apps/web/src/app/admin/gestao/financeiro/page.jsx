@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { GestaoLayout } from "../components/GestaoLayout";
+import { AdminLayout } from "@/app/admin/components/AdminLayout";
 import {
   Card,
   PageHeading,
@@ -10,7 +10,7 @@ import {
   inputClass,
   buttonClass,
   secondaryClass,
-} from "../components/UI";
+} from "@/app/admin/components/UI";
 import { useApi, useSave } from "@/utils/useApi";
 import { salonDate, formatDate, money } from "@/utils/salon";
 
@@ -43,7 +43,7 @@ export default function FinanceiroPage() {
     }
   }
   return (
-    <GestaoLayout>
+    <AdminLayout>
       <PageHeading
         title="Financeiro"
         description="Entradas, despesas e pagamentos do salão."
@@ -255,6 +255,6 @@ export default function FinanceiroPage() {
           </form>
         </Modal>
       )}
-    </GestaoLayout>
+    </AdminLayout>
   );
 }

@@ -1,3 +1,4 @@
+import { parseHttpOrigin } from "./origin.mjs";
 import {
   databaseConfigured,
   isLocalDatabase,
@@ -18,6 +19,10 @@ export async function readiness() {
   if (!process.env.AUTH_URL?.trim())
     issues.push(
       "AUTH_URL não configurado. Use http://localhost:4000 localmente e a origem HTTPS na hospedagem.",
+    );
+  else if (!parseHttpOrigin(process.env.AUTH_URL))
+    issues.push(
+      "AUTH_URL inválido. Use um endereço completo, como http://localhost:4000 ou https://seu-dominio.com.",
     );
   let services = 0;
   if (databaseConfigured()) {

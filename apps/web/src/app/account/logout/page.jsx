@@ -1,13 +1,19 @@
-import useAuth from "@/utils/useAuth";
+import { useState } from "react";
+import { signOut } from "@/utils/authClient";
 
 export default function LogoutPage() {
-  const { signOut } = useAuth();
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const handleSignOut = async () => {
-    await signOut({
-      callbackUrl: "/",
-      redirect: true,
-    });
+    setError("");
+    setBusy(true);
+    try {
+      window.location.assign(await signOut());
+    } catch (error) {
+      setError(error.message || "Não foi possível sair. Tente novamente.");
+      setBusy(false);
+    }
   };
 
   return (
@@ -21,11 +27,17 @@ export default function LogoutPage() {
           Tem certeza que deseja sair?
         </p>
 
+        {error && (
+          <p role="alert" className="mb-4 text-red-800">
+            {error}
+          </p>
+        )}
         <button
+          disabled={busy}
           onClick={handleSignOut}
           className="w-full rounded-lg bg-[#171717] px-4 py-3 text-base font-medium text-white transition-colors hover:bg-[#404040] focus:outline-none focus:ring-2 focus:ring-[#171717] focus:ring-offset-2"
         >
-          Confirmar Saída
+          {busy ? "Saindo..." : "Confirmar saída"}
         </button>
       </div>
     </div>

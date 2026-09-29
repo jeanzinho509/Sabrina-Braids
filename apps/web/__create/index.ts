@@ -1,5 +1,6 @@
 import Credentials from "@auth/core/providers/credentials";
-import { authHandler, initAuthConfig } from "@hono/auth-js";
+import { Auth } from "@auth/core";
+import { allowedMutationOrigin, requestOrigin } from "../src/server/origin.mjs";
 import { verify } from "argon2";
 import { Hono } from "hono";
 import { contextStorage } from "hono/context-storage";
@@ -24,15 +25,28 @@ app.use(contextStorage());
 app.use("*", secureHeaders({ crossOriginEmbedderPolicy: false }));
 app.use("/api/*", async (c, next) => {
   c.header("Cache-Control", "no-store");
-  // Cookie-authenticated mutations must come from the same site.
-  const origin = c.req.header("origin");
-  const expected = new URL(process.env.AUTH_URL || c.req.url).origin;
-  if (
-    !["GET", "HEAD", "OPTIONS"].includes(c.req.method) &&
-    origin &&
-    origin !== expected
-  )
-    return c.json({ error: "Origem não autorizada." }, 403);
+  if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method)) {
+    try {
+      if (
+        !allowedMutationOrigin(
+          c.req.url,
+          c.req.header("origin"),
+          c.req.header("sec-fetch-site"),
+        )
+      )
+        return c.json({ error: "Origem não autorizada." }, 403);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Configuração do acesso inválida.",
+        },
+        503,
+      );
+    }
+  }
   return next();
 });
 app.use(
@@ -49,23 +63,47 @@ app.onError((error, c) => {
 });
 app.get("/health", (c) => c.json({ status: "ok" }));
 if (process.env.AUTH_SECRET) {
-  app.use(
-    "*",
-    initAuthConfig(() => ({
+  app.use("/api/auth/*", async (c, next) => {
+    if (!isAuthAction(c.req.path)) return next();
+    let origin;
+    try {
+      origin = requestOrigin(c.req.url);
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Configuração do acesso inválida.",
+        },
+        503,
+      );
+    }
+    const url = new URL(c.req.url);
+    const authRequest = new Request(`${origin}${url.pathname}${url.search}`, {
+      method: c.req.method,
+      headers: c.req.raw.headers,
+      body: c.req.raw.body ? await c.req.blob() : undefined,
+      signal: c.req.raw.signal,
+    });
+    return Auth(authRequest, {
       basePath: "/api/auth",
       // AUTH_URL is deliberately an origin; the auth routes have their own path.
       logger: {
         warn(code) {
-          if (code !== "env-url-basepath-redundant") console.warn("[auth]", code);
+          if (code !== "env-url-basepath-redundant")
+            console.warn("[auth]", code);
         },
       },
       secret: process.env.AUTH_SECRET,
       trustHost: true,
-      pages: { signIn: "/account/signin", signOut: "/account/logout" },
+      pages: {
+        signIn: "/account/signin",
+        signOut: "/account/logout",
+        error: "/account/signin",
+      },
       session: { strategy: "jwt" },
-      useSecureCookies:
-        process.env.AUTH_URL?.startsWith("https:") ??
-        process.env.NODE_ENV === "production",
+      useSecureCookies: origin.startsWith("https:"),
       callbacks: {
         session({ session, token }) {
           if (token.sub) session.user.id = token.sub;
@@ -109,11 +147,8 @@ if (process.env.AUTH_SECRET) {
           },
         }),
       ],
-    })),
-  );
-  app.use("/api/auth/*", (c, next) =>
-    isAuthAction(c.req.path) ? authHandler()(c, next) : next(),
-  );
+    });
+  });
 } else {
   app.get("/api/auth/session", (c) => c.json(null));
   app.get("/api/auth/signin", (c) =>
@@ -127,6 +162,13 @@ if (process.env.AUTH_SECRET) {
   );
 }
 app.route(API_BASENAME, api);
+// Keep existing bookmarks working; these pages use the same APIs and database.
+app.get("/gestao", (c) =>
+  c.redirect(`/admin/gestao${new URL(c.req.url).search}`, 302),
+);
+app.get("/gestao/*", (c) =>
+  c.redirect(`/admin${c.req.path}${new URL(c.req.url).search}`, 302),
+);
 export default await createHonoServer({
   app,
   defaultLogger: false,

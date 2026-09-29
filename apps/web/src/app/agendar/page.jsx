@@ -1,4 +1,5 @@
-"use client";
+import ServicePhoto from "@/components/ServicePhoto";
+("use client");
 
 import { useEffect, useRef, useState } from "react";
 import { salonDate, whatsappLink, money } from "@/utils/salon";
@@ -301,6 +302,10 @@ export default function AgendarPage() {
                   onClick={() => handleServiceSelect(service)}
                   className="bg-white rounded-xl border border-gray-200 p-6 text-left hover:border-gray-300 transition-colors"
                 >
+                  <ServicePhoto
+                    service={service}
+                    className="mb-4 aspect-[4/3] rounded-lg"
+                  />
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-1">

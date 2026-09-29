@@ -12,14 +12,36 @@ não faz parte desta entrega web.
   sábado fechado. Horários passados, bloqueados e sobrepostos são recusados.
 - Pedidos ficam **pendentes** até confirmação da equipe. Após salvar, a cliente
   pode clicar em **Continuar no WhatsApp**; o sistema não envia mensagens sozinho.
-- `/gestao`: resumo real do banco, agenda, clientes e histórico, financeiro,
+- `/admin`: painel único com **Gestão e agenda** e **Site e serviços**.
+- `/admin/gestao`: resumo real do banco, agenda, clientes e histórico, financeiro,
   estoque, tarefas, metas mensais, rotina e ideias de conteúdo para Instagram.
-- `/admin`: cadastro e edição de serviços, galeria e vídeos.
+- `/admin/servicos`: cadastro e edição de serviços, galeria e vídeos.
+- Links antigos `/gestao` e `/gestao/*` redirecionam para a nova área do admin.
+  As tabelas, contas e dados são os mesmos; não é necessário migrar o banco.
 - Conclusão do atendimento e lançamento financeiro acontecem na mesma transação.
   A receita é registrada uma única vez, na data da conclusão, pelo valor recebido.
 - Financeiro e dashboard contabilizam apenas lançamentos marcados como pagos.
 - Autenticação de equipe por e-mail/senha, autorização no servidor e cadastro
   administrativo pelo terminal. Não há cadastro público de administradores.
+
+## Atualizar a versão que você já testou
+
+1. Pare o servidor antigo com `Ctrl+C` e mantenha uma cópia da pasta anterior.
+2. Extraia o novo ZIP em **outra pasta**, para não misturar arquivos antigos.
+3. Copie `apps/web/.env.local` e a pasta completa `apps/web/.data` da versão antiga
+   para os mesmos locais na nova. Se usa `.env` ou outro arquivo de ambiente,
+   copie-o também. Isso preserva seu e-mail, senha, sessão, clientes e agendamentos.
+   Se `DATABASE_LOCAL_PATH` foi personalizado, preserve o banco indicado ali.
+4. Na nova pasta `apps/web`, execute `npm ci`, `npm run doctor` e `npm run dev`.
+   Não precisa criar outra conta nem executar `setup:local` novamente.
+5. Abra o endereço exibido pelo servidor e entre em `/admin` com sua senha anterior.
+
+O acesso local funciona com `localhost` e `127.0.0.1`, inclusive se a porta do
+servidor mudou e `AUTH_URL` ainda está em `http://localhost:4000`. Use o mesmo
+endereço durante uma sessão: cookies de `localhost` e `127.0.0.1` são separados
+pelo navegador, então mudar de endereço pode pedir login novamente.
+Em produção, `AUTH_URL` deve continuar sendo a origem HTTPS exata do site.
+Requisições de outros sites continuam bloqueadas.
 
 ## Testar agora, sem configurar Neon
 
@@ -35,13 +57,14 @@ npm run dev
 O `setup:local` pede seu e-mail e uma senha de pelo menos 12 caracteres, aplica as
 migrações e cadastra três serviços **de demonstração**. Não há senha padrão. Abra
 `http://localhost:4000` e use esse mesmo e-mail/senha em `http://localhost:4000/admin`.
-`/admin` gerencia serviços, fotos e vídeos; `/gestao` mostra a agenda e a operação.
+`/admin` reúne a gestão, a agenda, os serviços, as fotos e os vídeos.
 
 Esse modo usa Postgres embarcado (PGlite), com dados persistidos em
 `apps/web/.data/local`, e só escuta no computador local. É possível cadastrar um
 serviço, agendar e conferir a reserva na gestão de verdade. As reservas e alterações
 continuam lá após reiniciar. Preços e durações dos exemplos são fictícios; nenhuma
-foto real do salão foi incluída. Cadastre o conteúdo real em `/admin`.
+foto real do salão foi incluída. Os três exemplos têm imagens geradas e identificadas
+como **ilustrativas**. Cadastre o conteúdo real em `/admin/servicos`.
 
 O comando cria `.env.local`, mantém um segredo de sessão estável e **preserva seu
 `.env` existente**. Não acessa o Neon nem altera dados da produção. Executá-lo de
@@ -58,8 +81,9 @@ npm run doctor
 
 | Sintoma | Verificação |
 | --- | --- |
-| Catálogo vazio | `doctor` distingue falha no banco de catálogo sem serviços. Em `/admin`, cadastre ao menos um serviço e marque-o como ativo. |
+| Catálogo vazio | `doctor` distingue falha no banco de catálogo sem serviços. Em `/admin/servicos`, cadastre ao menos um serviço e marque-o como ativo. |
 | Erro ao consultar horários | Confira a conexão/migrações. A tela agora exibe erro com botão para tentar novamente; não diz que a agenda está cheia. Sábado continua fechado. |
+| “Origem não autorizada” ou endereço inválido | Use esta versão atualizada e reinicie o servidor. `AUTH_URL` deve conter `http://` ou `https://`; execute `doctor` se o erro persistir. |
 | Login indisponível | `doctor` confere segredo, URL, migrações e conta autorizada. Execute `setup:local` para testar ou complete a configuração Neon abaixo. |
 
 Os comandos `dev`, `start`, `doctor`, `db:migrate` e `admin:create` carregam os
@@ -135,8 +159,12 @@ Não edite migrações já aplicadas; crie uma migração nova.
 
 ## Imagens e conteúdo
 
-O site utiliza os dados reais cadastrados em `/admin`; nenhuma foto, preço ou
-serviço é inserido automaticamente. Uploads JPG, PNG e WebP até 2 MB são gravados
+O site usa os dados cadastrados em `/admin/servicos`. Apenas `setup:local`
+insere serviços de demonstração, quando o catálogo está vazio. Os três exemplos
+recebem imagens ilustrativas incluídas no projeto; instalações locais anteriores
+com esses exemplos sem imagem também as exibem, sem apagar ou recriar registros.
+Veja os arquivos, a origem e os prompts em [docs/imagens-demo.md](docs/imagens-demo.md).
+Fotos reais enviadas no admin têm prioridade sobre as imagens de demonstração. Uploads JPG, PNG e WebP até 2 MB são gravados
 como data URL junto ao registro no Postgres, sem depender do endpoint privado da
 Anything. Também é possível usar uma URL HTTPS de imagem. Para galerias grandes,
 recomenda-se posteriormente migrar os arquivos para um serviço de objetos/CDN.
@@ -185,19 +213,20 @@ para falha de disponibilidade, sábado fechado e erro na galeria sem ocultar ser
 `npm run test:flows` inicia o **servidor de produção completo** com banco temporário
 em disco e autenticação real. Testa senha incorreta, login, autorização, cadastro de
 serviço ativo/inativo, disponibilidade, agendamento, conflito, lançamento financeiro
-único e persistência depois de reiniciar. Também verifica a resposta sem
-`AUTH_SECRET`. Usa conta e senha temporárias e não depende do Neon. O banco de teste
+único e persistência depois de reiniciar. Repete login, agendamento e saída com
+`127.0.0.1` e `localhost`, mantendo `AUTH_URL=http://localhost:4000` e iniciando o
+servidor em outra porta. Verifica origem externa bloqueada, imagens do catálogo,
+rotas novas e redirecionamentos antigos. Também verifica a resposta sem `AUTH_SECRET`. Usa conta e senha temporárias e não depende do Neon. O banco de teste
 é removido ao terminar; `.env`, `.env.local` e dados do usuário ficam intactos.
 
 Antes de abrir ao público: testar login real, cadastrar um serviço e foto reais,
 fazer um agendamento, confirmar/concluir, verificar o financeiro e abrir no celular.
 Não há deploy automático neste repositório; o workflow valida o código em PRs.
 
-Validação desta revisão: 15 testes, build, typecheck e o teste integrado do servidor
-passaram. A autenticação e as reservas foram validadas com dados persistidos em
-Postgres local. No Chromium, o servidor de desenvolvimento também passou pelo
-login, criação de serviço no admin, exibição no catálogo, escolha de horário e
-reserva visível na agenda, sem simular APIs. Catálogo, agendamento, admin e agenda
-foram verificados em 390 px, sem rolagem horizontal; o login sem segredo mostrou
-orientações na tela em vez de JSON. Não houve conexão com o Neon de produção nem
-publicação em hospedagem nesta etapa.
+Validação desta revisão: **22 testes**, build, typecheck e o teste integrado do
+servidor passaram. O Chromium testou o servidor de desenvolvimento com APIs e
+banco reais pelos dois endereços locais: senha incorreta, login, painel unificado,
+imagens em registros antigos sem foto, edição de exemplo, cadastro com upload,
+catálogo, escolha de horário, reserva visível na agenda e saída da conta.
+Menu e agenda foram verificados em 390 px, sem rolagem horizontal ou exceções no
+navegador. Não houve conexão com o Neon de produção nem publicação em hospedagem.

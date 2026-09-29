@@ -1,6 +1,6 @@
 import { Link } from "react-router";
-import { GestaoLayout } from "./components/GestaoLayout";
-import { Card, PageHeading, QueryState } from "./components/UI";
+import { AdminLayout } from "@/app/admin/components/AdminLayout";
+import { Card, PageHeading, QueryState } from "@/app/admin/components/UI";
 import { useApi, useSave } from "@/utils/useApi";
 import { money, formatDate } from "@/utils/salon";
 
@@ -9,7 +9,7 @@ export default function Dashboard() {
   const save = useSave();
   const data = query.data;
   return (
-    <GestaoLayout>
+    <AdminLayout>
       <PageHeading
         title="Seu salão, em dia"
         description="Acompanhe os atendimentos, o caixa e as prioridades de hoje."
@@ -25,7 +25,7 @@ export default function Dashboard() {
                 </p>
                 <Link
                   className="mt-3 inline-block text-sm underline"
-                  to="/gestao/agenda"
+                  to="/admin/gestao/agenda"
                 >
                   Abrir agenda
                 </Link>
@@ -37,7 +37,7 @@ export default function Dashboard() {
                 </p>
                 <Link
                   className="mt-3 inline-block text-sm underline"
-                  to="/gestao/financeiro"
+                  to="/admin/gestao/financeiro"
                 >
                   Ver financeiro
                 </Link>
@@ -62,7 +62,7 @@ export default function Dashboard() {
                 </p>
                 <Link
                   className="mt-3 inline-block text-sm underline"
-                  to="/gestao/tarefas-metas"
+                  to="/admin/gestao/tarefas-metas"
                 >
                   Editar meta
                 </Link>
@@ -152,6 +152,6 @@ export default function Dashboard() {
           </>
         )}
       </QueryState>
-    </GestaoLayout>
+    </AdminLayout>
   );
 }

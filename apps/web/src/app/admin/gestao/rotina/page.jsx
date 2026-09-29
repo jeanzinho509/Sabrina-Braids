@@ -1,6 +1,6 @@
-import { GestaoLayout } from "../components/GestaoLayout";
-import { TaskList } from "../components/TaskList";
-import { PageHeading } from "../components/UI";
+import { AdminLayout } from "@/app/admin/components/AdminLayout";
+import { TaskList } from "@/app/admin/components/TaskList";
+import { PageHeading } from "@/app/admin/components/UI";
 const categories = [
   ["faculdade", "Faculdade e estudos"],
   ["devocional", "Devocional"],
@@ -10,7 +10,7 @@ const categories = [
 ];
 export default function MinhaRotinaPage() {
   return (
-    <GestaoLayout>
+    <AdminLayout>
       <PageHeading
         title="Minha rotina"
         description="Seu espaço para organizar a vida além do salão."
@@ -20,6 +20,6 @@ export default function MinhaRotinaPage() {
           <TaskList key={category} category={category} title={title} />
         ))}
       </div>
-    </GestaoLayout>
+    </AdminLayout>
   );
 }

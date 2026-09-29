@@ -1,5 +1,7 @@
+import { isDemoImage } from "../../../utils/demoCatalog.js";
 export function validImage(value) {
   if (typeof value !== "string") return false;
+  if (isDemoImage(value)) return true;
   if (/^https:\/\//i.test(value)) {
     try {
       return Boolean(new URL(value).hostname);

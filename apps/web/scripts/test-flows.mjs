@@ -30,7 +30,7 @@ socket.listen(0, "127.0.0.1");
 await once(socket, "listening");
 const port = socket.address().port;
 await new Promise((resolve) => socket.close(resolve));
-const base = `http://127.0.0.1:${port}`;
+let base = `http://127.0.0.1:${port}`;
 let server;
 let serverLog = "";
 const cookies = new Map();
@@ -90,7 +90,7 @@ async function request(path, { authenticated = false, ...options } = {}) {
     );
   if (options.body && !headers.has("Content-Type"))
     headers.set("Content-Type", "application/json");
-  headers.set("Origin", base);
+  if (!headers.has("Origin")) headers.set("Origin", base);
   const response = await fetch(base + path, {
     ...options,
     headers,
@@ -114,9 +114,10 @@ async function json(path, options) {
 try {
   await command("setup-local.mjs", `${email}\n${password}\n${password}\n`);
   const configPath = join(fixture, ".env.local");
-  const config = (await readFile(configPath, "utf8"))
-    .replace("http://localhost:4000", base)
-    .replace("PORT=4000", `PORT=${port}`);
+  const config = (await readFile(configPath, "utf8")).replace(
+    "PORT=4000",
+    `PORT=${port}`,
+  );
   await writeFile(configPath, config);
   await command("setup-local.mjs"); // Must preserve account, secret and data.
   await command("doctor.mjs");
@@ -129,8 +130,43 @@ try {
   assert.equal((await request("/api/appointments")).status, 403);
   assert.equal((await request("/admin")).status, 200);
   assert.equal((await request("/not-a-page")).status, 404);
+  assert.equal(
+    (await request("/gestao/agenda?date=2026-10-01")).headers.get("location"),
+    "/admin/gestao/agenda?date=2026-10-01",
+  );
+  for (const route of [
+    "/admin/servicos",
+    "/admin/gestao",
+    "/admin/gestao/agenda",
+    "/admin/gestao/clientes",
+    "/admin/gestao/financeiro",
+    "/admin/gestao/estoque",
+    "/admin/gestao/instagram",
+    "/admin/gestao/rotina",
+    "/admin/gestao/tarefas-metas",
+  ])
+    assert.equal((await request(route)).status, 200, route);
+  for (const service of (await json("/api/services")).services) {
+    assert.match(service.image_url, /^\/images\/demo\//);
+    assert.equal((await request(service.image_url)).status, 200);
+  }
+  for (const origin of [
+    "https://attacker.example",
+    "null",
+    "http://localhost:4000",
+  ])
+    assert.equal(
+      (
+        await request("/api/appointments", {
+          method: "POST",
+          headers: { Origin: origin },
+          body: "{}",
+        })
+      ).status,
+      403,
+    );
 
-  const { csrfToken } = await json("/api/auth/csrf", { authenticated: true });
+  let { csrfToken } = await json("/api/auth/csrf", { authenticated: true });
   const signIn = (secret) =>
     json("/api/auth/callback/credentials-signin", {
       authenticated: true,
@@ -258,6 +294,49 @@ try {
   );
   console.log(
     "OK: dados, sessão e horários reservados persistem após reiniciar o servidor.",
+  );
+
+  await stop();
+  base = `http://localhost:${port}`;
+  cookies.clear();
+  await start();
+  ({ csrfToken } = await json("/api/auth/csrf", { authenticated: true }));
+  assert.equal((await signIn(password)).url, `${base}/admin`);
+  assert.equal(
+    (await json("/api/auth/session", { authenticated: true })).user.email,
+    email,
+  );
+  assert.equal(
+    (await json("/api/admin/check-access", { authenticated: true })).authorized,
+    true,
+  );
+  const remaining = await json(
+    `/api/appointments/available-times?date=${date}&duration=60`,
+  );
+  assert.ok(remaining.availableSlots.length);
+  await json("/api/appointments", {
+    method: "POST",
+    body: JSON.stringify({
+      ...booking,
+      startTime: remaining.availableSlots[0].start,
+    }),
+  });
+  const logout = await json("/api/auth/signout", {
+    authenticated: true,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "X-Auth-Return-Redirect": "1",
+    },
+    body: new URLSearchParams({
+      csrfToken,
+      callbackUrl: `${base}/`,
+    }).toString(),
+  });
+  assert.equal(logout.url, `${base}/`);
+  assert.equal(await json("/api/auth/session", { authenticated: true }), null);
+  console.log(
+    "OK: login, agendamento e saída também via localhost, com AUTH_URL em outra porta; origem externa recusada.",
   );
 
   await stop();

@@ -1,3 +1,4 @@
+import { demoImages } from "../src/utils/demoCatalog.js";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { parseEnv } from "node:util";
 import { randomBytes } from "node:crypto";
@@ -28,9 +29,7 @@ const input = prompt();
 try {
   const email =
     config?.ADMIN_EMAILS?.split(",")[0] ||
-    (await input.ask("Seu e-mail para entrar na gestão: "))
-      .trim()
-      .toLowerCase();
+    (await input.ask("Seu e-mail para entrar no admin: ")).trim().toLowerCase();
   if (!/^[^\s@=]+@[^\s@=]+\.[^\s@=]+$/.test(email))
     throw new Error("Informe um e-mail válido.");
   const local = config || {
@@ -77,12 +76,13 @@ try {
       ["Twists", 220, 180],
     ])
       await tx.query(
-        "INSERT INTO services (name, description, price, duration_minutes) VALUES ($1,$2,$3,$4)",
+        "INSERT INTO services (name, description, price, duration_minutes, image_url) VALUES ($1,$2,$3,$4,$5)",
         [
           `${name} · demonstração`,
           "Exemplo para testar o site. Preço e duração fictícios; cadastre os dados reais no admin antes de publicar.",
           price,
           duration,
+          demoImages[`${name} · demonstração`],
         ],
       );
     console.log("Três serviços de demonstração cadastrados no banco local.");

@@ -1,4 +1,5 @@
-"use client";
+import ServicePhoto from "@/components/ServicePhoto";
+("use client");
 
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/utils/useApi";
@@ -372,19 +373,7 @@ export default function HomePage() {
                 key={service.id}
                 className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-gray-300 transition-colors"
               >
-                <div className="aspect-[4/3] relative bg-gray-100">
-                  {service.image_url ? (
-                    <img
-                      src={service.image_url}
-                      alt={service.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center bg-[#f0e6da] px-6 text-center text-lg font-semibold text-[#725744]">
-                      {service.name}
-                    </div>
-                  )}
-                </div>
+                <ServicePhoto service={service} className="aspect-[4/3]" />
                 <div className="p-6">
                   <h4 className="text-lg font-semibold text-gray-900 mb-2">
                     {service.name}

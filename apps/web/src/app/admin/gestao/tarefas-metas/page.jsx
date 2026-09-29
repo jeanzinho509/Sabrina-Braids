@@ -1,5 +1,5 @@
-import { GestaoLayout } from "../components/GestaoLayout";
-import { TaskList } from "../components/TaskList";
+import { AdminLayout } from "@/app/admin/components/AdminLayout";
+import { TaskList } from "@/app/admin/components/TaskList";
 import {
   Card,
   PageHeading,
@@ -7,7 +7,7 @@ import {
   Field,
   SaveButton,
   inputClass,
-} from "../components/UI";
+} from "@/app/admin/components/UI";
 import { useApi, useSave } from "@/utils/useApi";
 import { salonDate, money } from "@/utils/salon";
 import { toast } from "sonner";
@@ -32,7 +32,7 @@ export default function TarefasMetasPage() {
     }
   }
   return (
-    <GestaoLayout>
+    <AdminLayout>
       <PageHeading
         title="Tarefas e metas"
         description="Organize as prioridades e acompanhe o faturamento do mês."
@@ -82,6 +82,6 @@ export default function TarefasMetasPage() {
           </QueryState>
         </Card>
       </div>
-    </GestaoLayout>
+    </AdminLayout>
   );
 }

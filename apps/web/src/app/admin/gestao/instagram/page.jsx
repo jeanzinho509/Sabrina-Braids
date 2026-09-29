@@ -1,6 +1,6 @@
-import { GestaoLayout } from "../components/GestaoLayout";
-import { TaskList } from "../components/TaskList";
-import { PageHeading } from "../components/UI";
+import { AdminLayout } from "@/app/admin/components/AdminLayout";
+import { TaskList } from "@/app/admin/components/TaskList";
+import { PageHeading } from "@/app/admin/components/UI";
 const categories = [
   ["instagram_reels", "Reels"],
   ["instagram_feed", "Fotos e carrosséis"],
@@ -9,7 +9,7 @@ const categories = [
 ];
 export default function InstagramPage() {
   return (
-    <GestaoLayout>
+    <AdminLayout>
       <PageHeading
         title="Conteúdo para Instagram"
         description="Guarde suas ideias e marque o que já foi publicado."
@@ -19,6 +19,6 @@ export default function InstagramPage() {
           <TaskList key={category} category={category} title={title} />
         ))}
       </div>
-    </GestaoLayout>
+    </AdminLayout>
   );
 }
