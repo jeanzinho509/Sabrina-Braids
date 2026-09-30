@@ -23,7 +23,7 @@ function ClientProfile({ client, onClose }) {
           {query.data?.history.map((appointment) => (
             <li
               key={appointment.id}
-              className="rounded-xl bg-[#f7f5f2] p-4 text-sm"
+              className="rounded-xl bg-[#f5f3e9] p-4 text-sm"
             >
               <strong>
                 {appointment.service_name || "Modelo personalizado"}

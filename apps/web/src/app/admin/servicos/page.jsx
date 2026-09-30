@@ -1,3 +1,5 @@
+import PhotoEditor from "@/components/PhotoEditor";
+import { itemPhotos } from "@/utils/photos";
 import ServicePhoto from "@/components/ServicePhoto";
 import { serviceImage, isDemoImage } from "@/utils/demoCatalog";
 import { useState } from "react";
@@ -21,6 +23,15 @@ import { money } from "@/utils/salon";
 const tabs = { services: "Serviços", gallery: "Galeria", videos: "Vídeos" };
 function Editor({ tab, item, onClose }) {
   const save = useSave();
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photos, setPhotos] = useState(() => {
+    const current = itemPhotos(item);
+    return current.length
+      ? current
+      : serviceImage(item)
+        ? [serviceImage(item)]
+        : [];
+  });
   const [upload, { loading: uploading }] = useUpload();
   const [imageUrl, setImageUrl] = useState(
     tab === "services" ? serviceImage(item) : item.image_url || "",
@@ -39,7 +50,7 @@ function Editor({ tab, item, onClose }) {
     if (tab === "services")
       body = {
         ...values,
-        image_url: imageUrl,
+        image_urls: photos,
         price: Number(values.price),
         duration_minutes: Number(values.duration_minutes),
         active: values.active === "on",
@@ -83,7 +94,7 @@ function Editor({ tab, item, onClose }) {
   return (
     <Modal
       title={`${item.id ? "Editar" : "Adicionar"} · ${tabs[tab]}`}
-      busy={save.isPending || uploading}
+      busy={save.isPending || uploading || photoBusy}
       onClose={onClose}
     >
       <form onSubmit={submit} className="space-y-4">
@@ -156,7 +167,24 @@ function Editor({ tab, item, onClose }) {
             </Field>
           </>
         )}
-        {tab !== "videos" && (
+        {tab === "services" && (
+          <>
+            <PhotoEditor
+              photos={photos}
+              onChange={setPhotos}
+              onBusyChange={setPhotoBusy}
+            />
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                name="active"
+                type="checkbox"
+                defaultChecked={item.active !== false}
+              />
+              Exibir no site
+            </label>
+          </>
+        )}
+        {tab === "gallery" && (
           <>
             <Field label="Imagem (JPG, PNG ou WebP, até 2 MB)">
               <input
@@ -240,7 +268,7 @@ function Editor({ tab, item, onClose }) {
             </Field>
           </>
         )}
-        <SaveButton pending={save.isPending || uploading} />
+        <SaveButton pending={save.isPending || uploading || photoBusy} />
       </form>
     </Modal>
   );

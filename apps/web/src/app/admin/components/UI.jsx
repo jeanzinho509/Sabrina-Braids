@@ -3,7 +3,7 @@ import { useEffect, useId, useRef } from "react";
 export const inputClass =
   "w-full rounded-xl border border-[#dfd2c5] bg-white px-3 py-2.5 text-sm text-[#1a1513] focus:outline-none focus:ring-2 focus:ring-[#8c6b52]";
 export const buttonClass =
-  "inline-flex items-center justify-center gap-2 rounded-xl bg-[#1a1513] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#5c4737] disabled:opacity-50 disabled:cursor-wait";
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-[#29321f] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#444c35] disabled:opacity-50 disabled:cursor-wait";
 export const secondaryClass =
   "inline-flex items-center justify-center rounded-lg border border-[#dfd2c5] px-3 py-2 text-sm font-medium hover:bg-[#f0e6da] disabled:opacity-50";
 

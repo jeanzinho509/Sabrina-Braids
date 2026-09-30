@@ -118,7 +118,8 @@ export default function Dashboard() {
                     >
                       <span>{item.name}</span>
                       <span className="text-red-700">
-                        {item.quantity} / {item.min_quantity} {item.unit}
+                        {item.quantity} /{" "}
+                        {Math.max(3, Number(item.min_quantity))} {item.unit}
                       </span>
                     </li>
                   ))}

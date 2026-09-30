@@ -23,6 +23,7 @@ export const SALON_HOURS_LABELS = [
   "Sábado: fechado",
 ];
 export const WHATSAPP_NUMBER = "5521993662669";
+export const INSTAGRAM_URL = "https://instagram.com/sabrin_braids";
 
 export function salonDate(now = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: SALON_TIMEZONE }).format(

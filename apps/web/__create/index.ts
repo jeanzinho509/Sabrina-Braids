@@ -1,8 +1,10 @@
 import Credentials from "@auth/core/providers/credentials";
 import { Auth } from "@auth/core";
 import { allowedMutationOrigin, requestOrigin } from "../src/server/origin.mjs";
+import { clientAddress, consumeLimit } from "../src/server/rate-limit.mjs";
 import { verify } from "argon2";
 import { Hono } from "hono";
+import type { HttpBindings } from "@hono/node-server";
 import { contextStorage } from "hono/context-storage";
 import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
@@ -20,9 +22,17 @@ if (!process.env.AUTH_SECRET || !databaseConfigured())
   console.warn(
     "Sabrina Braids: configuração incompleta. Execute npm run doctor ou npm run setup:local em apps/web.",
   );
-const app = new Hono();
+const app = new Hono<{ Bindings: HttpBindings }>();
 app.use(contextStorage());
-app.use("*", secureHeaders({ crossOriginEmbedderPolicy: false }));
+app.use(
+  "*",
+  secureHeaders({
+    crossOriginEmbedderPolicy: false,
+    xFrameOptions: "DENY",
+    referrerPolicy: "strict-origin-when-cross-origin",
+    permissionsPolicy: { camera: [], microphone: [], geolocation: [] },
+  }),
+);
 app.use("/api/*", async (c, next) => {
   c.header("Cache-Control", "no-store");
   if (!["GET", "HEAD", "OPTIONS"].includes(c.req.method)) {
@@ -46,6 +56,12 @@ app.use("/api/*", async (c, next) => {
         503,
       );
     }
+    if (
+      c.req.method !== "DELETE" &&
+      !c.req.path.startsWith("/api/auth/") &&
+      !/^application\/json(?:\s*;|$)/i.test(c.req.header("content-type") || "")
+    )
+      return c.json({ error: "Envie os dados em JSON." }, 415);
   }
   return next();
 });
@@ -69,6 +85,44 @@ app.use("*", (c, next) => {
     c.req.raw = new Request(incoming.url, init);
   }
   return limitBody(c, next);
+});
+app.use("/api/*", async (c, next) => {
+  if (c.req.method !== "POST") return next();
+  const login = c.req.path === "/api/auth/callback/credentials-signin";
+  const booking = c.req.path === "/api/appointments";
+  if (!login && !booking) return next();
+  try {
+    const remote = c.env?.incoming?.socket?.remoteAddress;
+    const address = clientAddress(
+      remote,
+      c.req.header("x-forwarded-for"),
+      Number(process.env.TRUST_PROXY_HOPS || 0),
+    );
+    const result = await consumeLimit(
+      login ? "login" : "booking",
+      address,
+      login ? 20 : 8,
+      15 * 60,
+    );
+    if (!result.allowed) {
+      c.header("Retry-After", String(result.retryAfter));
+      return c.json(
+        {
+          error: "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+        },
+        429,
+      );
+    }
+  } catch {
+    return c.json(
+      {
+        error:
+          "Não foi possível verificar a solicitação agora. Tente novamente em instantes.",
+      },
+      503,
+    );
+  }
+  return next();
 });
 app.onError((error, c) => {
   console.error(error);
@@ -115,7 +169,7 @@ if (process.env.AUTH_SECRET) {
         signOut: "/account/logout",
         error: "/account/signin",
       },
-      session: { strategy: "jwt" },
+      session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
       useSecureCookies: origin.startsWith("https:"),
       callbacks: {
         session({ session, token }) {
@@ -134,6 +188,7 @@ if (process.env.AUTH_SECRET) {
           async authorize(credentials) {
             if (
               typeof credentials.email !== "string" ||
+              credentials.email.length > 254 ||
               typeof credentials.password !== "string" ||
               credentials.password.length > 1024
             )

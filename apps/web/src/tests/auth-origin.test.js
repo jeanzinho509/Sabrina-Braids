@@ -51,6 +51,14 @@ describe("request origin", () => {
       ),
     ).toBe(false);
   });
+  it("rejects mutations without origin evidence", () => {
+    expect(
+      allowedMutationOrigin(actual, undefined, undefined, configured),
+    ).toBe(false);
+    expect(
+      allowedMutationOrigin(actual, undefined, "same-origin", configured),
+    ).toBe(true);
+  });
   it("uses only the configured public origin behind a production proxy", () => {
     const publicOrigin = "https://salon.example";
     expect(

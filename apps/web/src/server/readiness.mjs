@@ -36,6 +36,9 @@ export async function readiness() {
           "002_booking_integrity.sql",
           "003_link_existing_clients.sql",
           "004_products.sql",
+          "005_catalog_photos.sql",
+          "006_stock_alerts.sql",
+          "007_request_limits.sql",
         ].some((name) => !versions.some((row) => row.name === name))
       )
         issues.push("Há migrações pendentes. Execute npm run db:migrate.");

@@ -219,7 +219,7 @@ export default function AgendarPage() {
                   <div
                     className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-medium transition-colors ${
                       step >= s.num
-                        ? "border-blue-600 bg-[#5c4737] text-white"
+                        ? "border-blue-600 bg-[#444c35] text-white"
                         : "border-gray-200 bg-white text-gray-400"
                     }`}
                   >
@@ -234,7 +234,7 @@ export default function AgendarPage() {
                 {idx < 3 && (
                   <div
                     className={`h-0.5 flex-1 -mt-6 transition-colors ${
-                      step > s.num ? "bg-[#5c4737]" : "bg-gray-200"
+                      step > s.num ? "bg-[#444c35]" : "bg-gray-200"
                     }`}
                   />
                 )}
@@ -303,9 +303,8 @@ export default function AgendarPage() {
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {services.map((service) => (
-                <button
+                <article
                   key={service.id}
-                  onClick={() => handleServiceSelect(service)}
                   className="bg-white rounded-xl border border-gray-200 p-6 text-left hover:border-gray-300 transition-colors"
                 >
                   <ServicePhoto
@@ -327,14 +326,22 @@ export default function AgendarPage() {
                     <span className="text-2xl font-semibold text-gray-900">
                       {money(service.price)}
                     </span>
-                    <div className="bg-blue-50 text-blue-600 rounded-full px-3 py-1 text-xs font-medium">
+                    <div className="bg-[#e8ecdc] text-[#444c35] rounded-full px-3 py-1 text-xs font-medium">
                       {Math.floor(service.duration_minutes / 60)}h{" "}
                       {service.duration_minutes % 60 > 0
                         ? `${service.duration_minutes % 60}min`
                         : ""}
                     </div>
                   </div>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleServiceSelect(service)}
+                    aria-label={`Escolher ${service.name}`}
+                    className="mt-5 w-full rounded-lg bg-[#444c35] px-4 py-3 font-medium text-white hover:bg-[#303827]"
+                  >
+                    Escolher serviço
+                  </button>
+                </article>
               ))}
 
               {/* Opção "Outro Modelo" - NEW */}
@@ -469,7 +476,7 @@ export default function AgendarPage() {
             <p className="text-gray-600 mb-8">
               Selecione quando você quer fazer suas tranças
             </p>
-            <div className="mb-6 rounded-xl border border-[#e8dcc8] bg-[#fcfaf7] p-4 text-sm text-[#725744]">
+            <div className="mb-6 rounded-xl border border-[#e8dcc8] bg-[#f5f3e9] p-4 text-sm text-[#725744]">
               {SALON_HOURS_LABELS.map((label) => (
                 <p key={label}>{label}</p>
               ))}
@@ -677,7 +684,7 @@ export default function AgendarPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-[#5c4737] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#8c6b52] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-[#444c35] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#5b6247] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Confirmando..." : "Confirmar Agendamento"}
               </button>
@@ -783,7 +790,7 @@ export default function AgendarPage() {
                   });
                   setSuccess(false);
                 }}
-                className="bg-[#5c4737] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#8c6b52] transition-colors"
+                className="bg-[#444c35] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#5b6247] transition-colors"
               >
                 Fazer outro agendamento
               </a>

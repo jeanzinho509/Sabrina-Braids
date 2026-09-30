@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import useUser from "@/utils/useUser";
 import { useApi } from "@/utils/useApi";
+import StockNotifications from "./StockNotifications";
 
 export function AdminLayout({ children }) {
   const { data: user, loading } = useUser();
@@ -16,7 +17,7 @@ export function AdminLayout({ children }) {
   }, [loading, user]);
   if (loading || !user || access.isPending)
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f7f5f2]">
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f3e9]">
         <p role="status">Carregando...</p>
       </div>
     );
@@ -33,8 +34,8 @@ export function AdminLayout({ children }) {
       </div>
     );
   return (
-    <div className="min-h-screen bg-[#f7f5f2] font-inter text-[#1a1513] lg:flex">
-      <div className="flex items-center justify-between bg-[#1a1513] px-4 py-4 text-white lg:hidden">
+    <div className="min-h-screen bg-[#f5f3e9] font-inter text-[#1a1513] lg:flex">
+      <div className="flex items-center justify-between bg-[#29321f] px-4 py-4 text-white lg:hidden">
         <a href="/admin" className="font-semibold">
           <BrandLogo compact />
         </a>
@@ -53,7 +54,10 @@ export function AdminLayout({ children }) {
       >
         <Sidebar />
       </div>
-      <main className="min-w-0 flex-1 p-4 sm:p-6 xl:p-8">{children}</main>
+      <main className="min-w-0 flex-1 p-4 sm:p-6 xl:p-8">
+        <StockNotifications email={user.email} />
+        {children}
+      </main>
     </div>
   );
 }

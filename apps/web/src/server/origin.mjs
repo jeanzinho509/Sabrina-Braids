@@ -48,5 +48,6 @@ export function allowedMutationOrigin(
 ) {
   const expected = requestOrigin(requestUrl, configuredUrl);
   if (fetchSite === "cross-site") return false;
-  return !origin || origin === expected;
+  // Browser mutations must identify their origin, or explicitly be same-origin.
+  return origin ? origin === expected : fetchSite === "same-origin";
 }

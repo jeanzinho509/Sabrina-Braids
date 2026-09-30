@@ -49,7 +49,7 @@ const groups = [
 export function Sidebar() {
   const { pathname } = useLocation();
   return (
-    <div className="flex w-full flex-col bg-[#1a1513] font-inter text-[#ebd4c5] shadow-2xl lg:min-h-screen lg:w-60">
+    <div className="flex w-full flex-col bg-[#29321f] font-inter text-[#ebd4c5] shadow-2xl lg:min-h-screen lg:w-60">
       <div className="border-b border-[#302621] p-6">
         <Link
           to="/admin"

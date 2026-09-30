@@ -1,6 +1,7 @@
 {
   "include": [
     "src/app/root.tsx",
+    "src/app/entry.server.tsx",
     "src/app/routes.ts",
     "__create/index.ts",
     "vite.config.ts",
@@ -9,23 +10,13 @@
     "src/global.d.ts"
   ],
   "compilerOptions": {
-    "lib": [
-      "DOM",
-      "DOM.Iterable",
-      "ES2022"
-    ],
-    "types": [
-      "node",
-      "vite/client"
-    ],
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "types": ["node", "vite/client"],
     "target": "ES2022",
     "module": "ES2022",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "rootDirs": [
-      ".",
-      "./.react-router/types"
-    ],
+    "rootDirs": [".", "./.react-router/types"],
     "baseUrl": ".",
     "esModuleInterop": true,
     "verbatimModuleSyntax": true,
@@ -34,9 +25,7 @@
     "skipLibCheck": true,
     "strict": true,
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"]
     },
     "allowJs": true
   }

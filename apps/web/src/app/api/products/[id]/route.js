@@ -24,7 +24,11 @@ export async function PATCH(request, { params }) {
         { error: "Produto não encontrado." },
         { status: 404 },
       );
-    const { product, error } = validateProduct({ ...existing[0], ...body });
+    const merged = { ...existing[0], ...body };
+    // Legacy clients may replace only the cover; retain the remaining photos.
+    if (Object.hasOwn(body, "image_url") && !Object.hasOwn(body, "image_urls"))
+      delete merged.image_urls;
+    const { product, error } = validateProduct(merged, existing[0]);
     if (error) return Response.json({ error }, { status: 400 });
     const {
       name,
@@ -32,13 +36,14 @@ export async function PATCH(request, { params }) {
       category,
       price,
       image_url,
+      image_urls,
       active,
       available,
       display_order,
     } = product;
     const rows =
       await sql`UPDATE products SET name = ${name}, description = ${description}, category = ${category},
-      price = ${price}, image_url = ${image_url}, active = ${active}, available = ${available}, display_order = ${display_order}, updated_at = now()
+      price = ${price}, image_url = ${image_url}, image_urls = ${image_urls}, active = ${active}, available = ${available}, display_order = ${display_order}, updated_at = now()
       WHERE id = ${params.id} RETURNING *`;
     if (!rows.length)
       return Response.json(

@@ -70,6 +70,8 @@ async function connection() {
         const pool = new Pool({
           connectionString: process.env.DATABASE_URL,
           connectionTimeoutMillis: 10000,
+          max: 10,
+          idleTimeoutMillis: 30000,
         });
         return { pool, http: neon(process.env.DATABASE_URL) };
       }

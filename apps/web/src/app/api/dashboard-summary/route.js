@@ -35,7 +35,7 @@ export async function GET() {
         ORDER BY created_at ASC LIMIT 5
       `,
       sql`
-        SELECT * FROM stock_items WHERE quantity <= min_quantity ORDER BY quantity ASC
+        SELECT * FROM stock_items WHERE quantity <= GREATEST(3, min_quantity) ORDER BY quantity ASC
       `,
       sql`
         SELECT * FROM financial_transactions

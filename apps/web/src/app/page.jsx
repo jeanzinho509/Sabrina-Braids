@@ -1,3 +1,4 @@
+import SalonBanner from "@/components/SalonBanner";
 import BrandLogo from "@/components/BrandLogo";
 import ProductsSection from "@/components/ProductsSection";
 import ServicePhoto from "@/components/ServicePhoto";
@@ -111,7 +112,7 @@ export default function HomePage() {
               </a>
               <a
                 href="/agendar"
-                className="bg-[#5c4737] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#8c6b52] transition-colors"
+                className="bg-[#444c35] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#5b6247] transition-colors"
               >
                 Agendar Agora
               </a>
@@ -121,7 +122,7 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-[#F5F1E8] to-[#E8DCC8] py-20 sm:py-32">
+      <section className="relative bg-gradient-to-br from-[#f5f3e9] to-[#e0e4cc] py-20 sm:py-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-full px-3 py-1.5 mb-6">
@@ -141,7 +142,7 @@ export default function HomePage() {
             <div className="flex flex-wrap items-center gap-4">
               <a
                 href="/agendar"
-                className="bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors inline-flex items-center gap-2"
+                className="bg-[#444c35] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#303827] transition-colors inline-flex items-center gap-2"
               >
                 Agendar Horário
                 <svg
@@ -282,7 +283,7 @@ export default function HomePage() {
                     onClick={() => setCurrentImageIndex(index)}
                     className={`h-2 transition-all rounded-full ${
                       index === currentImageIndex
-                        ? "bg-gray-900 w-8"
+                        ? "bg-[#444c35] w-8"
                         : "bg-gray-300 hover:bg-gray-400 w-2"
                     }`}
                     aria-label={`Ir para imagem ${index + 1}`}
@@ -357,6 +358,8 @@ export default function HomePage() {
         </section>
       )}
 
+      <SalonBanner />
+
       {/* Services Section */}
       <section id="services" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -399,7 +402,7 @@ export default function HomePage() {
                         {money(service.price)}
                       </span>
                     </div>
-                    <div className="bg-blue-50 text-blue-600 rounded-full px-3 py-1 text-xs font-medium inline-flex items-center gap-1.5">
+                    <div className="bg-[#e8ecdc] text-[#444c35] rounded-full px-3 py-1 text-xs font-medium inline-flex items-center gap-1.5">
                       <svg
                         className="w-3.5 h-3.5"
                         fill="none"
@@ -422,7 +425,7 @@ export default function HomePage() {
 
                   <a
                     href={`/agendar?service=${service.id}`}
-                    className="block w-full bg-gray-900 text-white text-center px-4 py-2.5 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+                    className="block w-full bg-[#444c35] text-white text-center px-4 py-2.5 rounded-lg font-medium hover:bg-[#303827] transition-colors"
                   >
                     Agendar este serviço
                   </a>

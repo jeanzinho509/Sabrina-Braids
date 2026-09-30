@@ -17,7 +17,7 @@ export default function ProductsSection() {
     <section
       id="products"
       aria-labelledby="products-heading"
-      className="scroll-mt-6 border-y border-[#eee5d9] bg-[#fcfaf7] py-16 sm:py-20"
+      className="scroll-mt-6 border-y border-[#eee5d9] bg-[#f5f3e9] py-16 sm:py-20"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
@@ -94,7 +94,7 @@ export default function ProductsSection() {
                     type="button"
                     aria-pressed={selected === item}
                     onClick={() => setCategory(item)}
-                    className={`rounded-full border px-4 py-2 text-sm transition ${selected === item ? "border-[#5c4737] bg-[#5c4737] text-white" : "border-[#dfd2c5] bg-white text-[#725744] hover:border-[#8c6b52]"}`}
+                    className={`rounded-full border px-4 py-2 text-sm transition ${selected === item ? "border-[#5c4737] bg-[#444c35] text-white" : "border-[#dfd2c5] bg-white text-[#725744] hover:border-[#8c6b52]"}`}
                   >
                     {item || "Todos"}
                   </button>
@@ -140,7 +140,7 @@ export default function ProductsSection() {
                         target="_blank"
                         rel="noopener noreferrer"
                         aria-label={`${product.available ? "Consultar" : "Consultar reposição de"} ${product.name} no WhatsApp`}
-                        className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-[#5c4737] px-3 py-3 text-center text-sm font-medium text-white transition hover:bg-[#8c6b52]"
+                        className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-[#444c35] px-3 py-3 text-center text-sm font-medium text-white transition hover:bg-[#5b6247]"
                       >
                         {product.available
                           ? "Consultar no WhatsApp"

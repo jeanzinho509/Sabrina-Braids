@@ -1,6 +1,6 @@
-import { validImage } from "./media";
+import { validatePhotos } from "./media";
 
-export function validateProduct(input) {
+export function validateProduct(input, existing = {}) {
   if (!input || typeof input !== "object" || Array.isArray(input))
     return { error: "Dados do produto inválidos." };
   const name = typeof input.name === "string" ? input.name.trim() : "";
@@ -31,12 +31,12 @@ export function validateProduct(input) {
   const available = input.available ?? true;
   if (typeof active !== "boolean" || typeof available !== "boolean")
     return { error: "Disponibilidade ou visibilidade inválida." };
-  const image_url = input.image_url ?? "";
-  if (typeof image_url !== "string" || (image_url && !validImage(image_url)))
-    return {
-      error:
-        "Imagem inválida. Use HTTPS ou envie JPG, PNG ou WebP de até 2 MB.",
-    };
+  const {
+    image_url,
+    image_urls,
+    error: photoError,
+  } = validatePhotos(input, existing);
+  if (photoError) return { error: photoError };
   if (active && !image_url)
     return { error: "Adicione uma foto antes de exibir o produto no site." };
   const display_order = input.display_order ?? 0;
@@ -55,6 +55,7 @@ export function validateProduct(input) {
       category: category.trim(),
       price,
       image_url: image_url || null,
+      image_urls,
       active,
       available,
       display_order,

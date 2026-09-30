@@ -28,13 +28,14 @@ export async function POST(request) {
       category,
       price,
       image_url,
+      image_urls,
       active,
       available,
       display_order,
     } = product;
     const rows =
-      await sql`INSERT INTO products (name, description, category, price, image_url, active, available, display_order)
-      VALUES (${name}, ${description}, ${category}, ${price}, ${image_url}, ${active}, ${available}, ${display_order}) RETURNING *`;
+      await sql`INSERT INTO products (name, description, category, price, image_url, image_urls, active, available, display_order)
+      VALUES (${name}, ${description}, ${category}, ${price}, ${image_url}, ${image_urls}, ${active}, ${available}, ${display_order}) RETURNING *`;
     return Response.json({ product: rows[0] }, { status: 201 });
   } catch (error) {
     return productError(error);

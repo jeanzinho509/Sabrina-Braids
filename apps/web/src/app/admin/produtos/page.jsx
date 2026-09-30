@@ -14,39 +14,29 @@ import {
 } from "../components/UI";
 import ProductPhoto from "@/components/ProductPhoto";
 import { useApi, useSave } from "@/utils/useApi";
-import useUpload from "@/utils/useUpload";
+import PhotoEditor from "@/components/PhotoEditor";
+import { itemPhotos } from "@/utils/photos";
 import { money } from "@/utils/salon";
 
 const categories = ["Finalizadores", "Cuidados capilares", "Acessórios"];
 function ProductEditor({ item, onClose }) {
   const save = useSave();
-  const [upload, { loading: uploading }] = useUpload();
-  const [imageUrl, setImageUrl] = useState(item.image_url || "");
+  const [uploading, setUploading] = useState(false);
+  const [photos, setPhotos] = useState(() => itemPhotos(item));
   const [error, setError] = useState("");
-  async function selectImage(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const result = await upload({ file });
-    if (result.error) setError(result.error);
-    else {
-      setError("");
-      setImageUrl(result.url);
-    }
-    event.target.value = "";
-  }
   async function submit(event) {
     event.preventDefault();
     setError("");
     const values = Object.fromEntries(new FormData(event.currentTarget));
     const body = {
       ...values,
-      image_url: imageUrl,
+      image_urls: photos,
       price: values.price === "" ? null : Number(values.price),
       display_order: Number(values.display_order),
       active: values.active === "on",
       available: values.available === "on",
     };
-    if (body.active && !imageUrl) {
+    if (body.active && !photos.length) {
       setError(
         "Adicione uma foto ou desmarque Exibir no site para salvar um rascunho.",
       );
@@ -136,44 +126,11 @@ function ProductEditor({ item, onClose }) {
           Sem preço preenchido, o site mostra “Preço sob consulta”. Os menores
           números aparecem primeiro.
         </p>
-        <Field label="Foto do produto (até 2 MB)">
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={selectImage}
-            className="block w-full text-sm"
-          />
-        </Field>
-        <Field label="Ou endereço HTTPS da foto">
-          <input
-            type="url"
-            pattern="https://.*"
-            placeholder="https://..."
-            value={imageUrl.startsWith("https:") ? imageUrl : ""}
-            onChange={(event) => setImageUrl(event.target.value)}
-            className={inputClass}
-          />
-        </Field>
-        {imageUrl && (
-          <div>
-            <ProductPhoto
-              product={{ name: "Prévia do produto", image_url: imageUrl }}
-              className="h-44 rounded-xl"
-            />
-            <button
-              type="button"
-              onClick={() => setImageUrl("")}
-              className="mt-2 text-sm underline"
-            >
-              Remover foto
-            </button>
-          </div>
-        )}
-        {uploading && (
-          <p role="status" className="text-sm">
-            Preparando foto...
-          </p>
-        )}
+        <PhotoEditor
+          photos={photos}
+          onChange={setPhotos}
+          onBusyChange={setUploading}
+        />
         <label className="flex items-center gap-2 text-sm">
           <input
             name="available"

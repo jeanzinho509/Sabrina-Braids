@@ -46,6 +46,12 @@ vi.mock("@/app/api/utils/sql", () => {
     });
   return { default: sql };
 });
+import * as services from "@/app/api/services/route";
+import * as serviceItem from "@/app/api/services/[id]/route";
+import * as stockAlerts from "@/app/api/stock-alerts/route";
+import * as media from "@/app/api/media/route";
+import * as mediaItem from "@/app/api/media/[id]/route";
+import { consumeLimit, clientAddress } from "../server/rate-limit.mjs";
 import * as products from "@/app/api/products/route";
 import * as productItem from "@/app/api/products/[id]/route";
 import * as appointments from "@/app/api/appointments/route";
@@ -89,6 +95,9 @@ beforeAll(async () => {
     "002_booking_integrity.sql",
     "003_link_existing_clients.sql",
     "004_products.sql",
+    "005_catalog_photos.sql",
+    "006_stock_alerts.sql",
+    "007_request_limits.sql",
   ])
     await state.db.exec(
       await readFile(
@@ -101,7 +110,7 @@ afterAll(async () => state.db?.close());
 beforeEach(async () => {
   state.admin = true;
   await state.db.exec(
-    "TRUNCATE financial_transactions, appointments, clients, services, time_blocks, stock_items, tasks, monthly_goals, gallery, products RESTART IDENTITY CASCADE",
+    "TRUNCATE financial_transactions, appointments, clients, services, time_blocks, stock_items, tasks, monthly_goals, gallery, products, media_assets, request_limits RESTART IDENTITY CASCADE",
   );
   await state.db.query(
     "INSERT INTO services (name, price, duration_minutes) VALUES ('Box braids', 280, 180)",
@@ -127,6 +136,11 @@ describe("operational API with a real Postgres engine", () => {
       clients.GET(request("clients")),
       financial.GET(request("financial-transactions")),
       stock.GET(),
+      stockAlerts.GET(),
+      stockAlerts.PATCH(request("stock-alerts", "PATCH", { alerts: [] })),
+      media.POST(request("media", "POST", {})),
+      services.POST(request("services", "POST", {})),
+      serviceItem.PATCH(request("services/1", "PATCH", {}), context(1)),
       tasks.GET(request("tasks")),
       gallery.POST(request("gallery", "POST", {})),
       galleryItem.DELETE(request("gallery/1", "DELETE"), context(1)),
@@ -500,5 +514,190 @@ describe("product catalog with real SQL", () => {
         )
       ).status,
     ).toBe(201);
+  });
+});
+
+describe("galleries, persistent notifications and security", () => {
+  const photo1 = "https://example.test/one.jpg",
+    photo2 = "https://example.test/two.jpg";
+  it("preserves ordered galleries and legacy cover edits for services and products", async () => {
+    for (const [collection, item, name, data] of [
+      [
+        services,
+        serviceItem,
+        "services",
+        { name: "Nagô", price: 80, duration_minutes: 60 },
+      ],
+      [
+        products,
+        productItem,
+        "products",
+        { name: "Gel", price: 20, active: true },
+      ],
+    ]) {
+      const created = await collection.POST(
+        request(name, "POST", { ...data, image_urls: [photo1, photo2] }),
+      );
+      expect(created.status).toBe(201);
+      const record = (await created.json())[
+        name === "services" ? "service" : "product"
+      ];
+      expect(record.image_urls).toEqual([photo1, photo2]);
+      expect(record.image_url).toBe(photo1);
+      expect(
+        (
+          await item.PATCH(
+            request(name, "PATCH", {
+              image_url: "https://example.test/new.jpg",
+            }),
+            context(record.id),
+          )
+        ).status,
+      ).toBe(200);
+      const listed = (await (await collection.GET(request(name))).json())[name];
+      expect(listed.find((row) => row.id === record.id).image_urls).toEqual([
+        "https://example.test/new.jpg",
+        photo2,
+      ]);
+      const edited = await item.PATCH(
+        request(name, "PATCH", { image_urls: [photo2, photo1] }),
+        context(record.id),
+      );
+      expect(
+        (await edited.json())[name === "services" ? "service" : "product"]
+          .image_url,
+      ).toBe(photo2);
+      expect(
+        (
+          await item.PATCH(
+            request(name, "PATCH", { image_urls: Array(9).fill(photo1) }),
+            context(record.id),
+          )
+        ).status,
+      ).toBe(400);
+      expect(
+        (
+          await item.PATCH(
+            request(name, "PATCH", { image_urls: ["javascript:alert(1)"] }),
+            context(record.id),
+          )
+        ).status,
+      ).toBe(400);
+    }
+  });
+  it("uploads an image once and serves a stable bounded asset with MIME and cache protection", async () => {
+    const image =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+kL9sAAAAASUVORK5CYII=";
+    const result = await media.POST(request("media", "POST", { image }));
+    expect(result.status).toBe(201);
+    const { url } = await result.json(),
+      id = url.split("/").at(-1);
+    state.admin = false;
+    const response = await mediaItem.GET(request("media/" + id), context(id));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("cache-control")).toContain("immutable");
+    expect(Buffer.from(await response.arrayBuffer()).toString("base64")).toBe(
+      image.split(",")[1],
+    );
+    const cached = new Request("http://localhost" + url, {
+      headers: { "If-None-Match": response.headers.get("etag") },
+    });
+    expect((await mediaItem.GET(cached, context(id))).status).toBe(304);
+    state.admin = true;
+    for (const value of [
+      "data:image/svg+xml;base64,PHN2Zy8+",
+      "data:image/png;base64,PHNjcmlwdD4=",
+      "https://example.test/image.jpg",
+      "data:image/png;base64," + "A".repeat(2800001),
+    ])
+      expect(
+        (await media.POST(request("media", "POST", { image: value }))).status,
+      ).toBe(400);
+  });
+  it("notifies at three, reopens on quantity change, preserves unseen concurrent changes and resolves after restocking", async () => {
+    const { item } = await (
+      await stock.POST(
+        request("stock-items", "POST", {
+          name: "Gel de teste",
+          quantity: 5,
+          minQuantity: 0,
+        }),
+      )
+    ).json();
+    const update = (quantity) =>
+      stockItem.PUT(
+        request("stock-items/" + item.id, "PUT", { quantity }),
+        context(item.id),
+      );
+    const list = async () => (await stockAlerts.GET()).json();
+    expect((await list()).alerts).toHaveLength(0);
+    await update(3);
+    let current = await list();
+    expect(current.unread).toBe(1);
+    expect(current.alerts[0].quantity).toBe(3);
+    const old = { id: item.id, version: current.alerts[0].version };
+    expect(
+      (
+        await stockAlerts.PATCH(
+          request("stock-alerts", "PATCH", { alerts: [old] }),
+        )
+      ).status,
+    ).toBe(200);
+    expect((await list()).unread).toBe(0);
+    await update(2);
+    await stockAlerts.PATCH(
+      request("stock-alerts", "PATCH", { alerts: [old] }),
+    );
+    expect((await list()).unread).toBe(1);
+    await update(7);
+    expect((await list()).alerts).toHaveLength(0);
+    await update(0);
+    current = await list();
+    expect(current.unread).toBe(1);
+    expect(current.alerts[0].quantity).toBe(0);
+    await stockItem.DELETE(
+      request("stock-items/" + item.id, "DELETE"),
+      context(item.id),
+    );
+    expect((await list()).alerts).toHaveLength(0);
+  });
+  it("uses a greater configured stock threshold and marks existing low-stock items", async () => {
+    const { item } = await (
+      await stock.POST(
+        request("stock-items", "POST", {
+          name: "Jumbo",
+          quantity: 5,
+          minQuantity: 6,
+        }),
+      )
+    ).json();
+    const current = await (await stockAlerts.GET()).json();
+    expect(current.alerts[0]).toMatchObject({
+      stock_item_id: item.id,
+      threshold: 6,
+    });
+    expect((await (await dashboard.GET()).json()).lowStock).toHaveLength(1);
+  });
+  it("atomically limits repeated requests in SQL and expires a window without retaining raw IP addresses", async () => {
+    const query = state.db.query.bind(state.db),
+      secret = "test-secret-with-at-least-32-characters";
+    const attempt = () =>
+      consumeLimit("test", "192.0.2.10", 3, 900, query, secret);
+    const results = await Promise.all(Array.from({ length: 8 }, attempt));
+    expect(results.filter((result) => result.allowed)).toHaveLength(3);
+    const rows = (await query("SELECT * FROM request_limits")).rows;
+    expect(rows).toHaveLength(1);
+    expect(rows[0].key_hash).toMatch(/^[a-f0-9]{64}$/);
+    await query(
+      "UPDATE request_limits SET expires_at = NOW() - INTERVAL '1 second'",
+    );
+    expect((await attempt()).allowed).toBe(true);
+    expect(clientAddress("127.0.0.1", "1.2.3.4", 0)).toBe("127.0.0.1");
+    expect(clientAddress("127.0.0.1", "spoofed, 192.0.2.10", 1)).toBe(
+      "192.0.2.10",
+    );
+    expect(clientAddress("127.0.0.1", "invalid", 1)).toBe("127.0.0.1");
   });
 });

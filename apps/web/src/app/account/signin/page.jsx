@@ -39,7 +39,7 @@ export default function SignInPage() {
     }
   }
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f7f5f2] px-4">
+    <main className="flex min-h-screen items-center justify-center bg-[#f5f3e9] px-4">
       <form
         onSubmit={submit}
         className="w-full max-w-md space-y-5 rounded-2xl border border-[#e8dcc8] bg-white p-7"

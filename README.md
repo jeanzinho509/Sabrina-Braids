@@ -7,6 +7,13 @@ não faz parte desta entrega web.
 ## Funcionalidades da versão web
 
 - Site público com catálogo de serviços, fotos, vídeos e WhatsApp do salão.
+- Até **8 fotos por serviço/produto**, seleção de capa e galeria com setas no site,
+  admin e agendamento. Fotos anteriores são preservadas.
+- Banner enviado pelo salão antes dos serviços, ícones de WhatsApp e Instagram
+  clicáveis e botões adicionais para celular; cores oliva, creme e bronze.
+- Botão **Voltar ao topo** nas páginas, respeitando a preferência por menos animações.
+- Avisos persistentes em todo o admin quando o estoque chega a **3 unidades ou menos**,
+  ou antes se houver um mínimo maior configurado. Reposição resolve o aviso.
 - Seção **Produtos**, logo após os serviços, com fotos, categorias, preço opcional
   e consulta pelo WhatsApp. Catálogo gerenciado em `/admin/produtos`.
 - Agendamento por serviço ou modelo personalizado, com imagem e descrição.
@@ -45,9 +52,12 @@ não faz parte desta entrega web.
    npm run dev
    ```
 
-   **Esta versão inclui a migração `004_products.sql`.** O comando cria a tabela
-   de produtos e preserva os dados existentes. Não precisa criar outra conta nem
+   **Esta versão inclui as migrações `005_catalog_photos.sql`,
+   `006_stock_alerts.sql` e `007_request_limits.sql`.** O comando preserva as
+   fotos antigas como capa, cria avisos de estoque e proteção contra excesso de
+   tentativas. As migrações anteriores também são aplicadas se necessário. Não precisa criar outra conta nem
    executar `setup:local` novamente.
+
 5. Abra o endereço exibido pelo servidor e entre em `/admin` com sua senha anterior.
 
 O acesso local funciona com `localhost` e `127.0.0.1`, inclusive se a porta do
@@ -59,7 +69,7 @@ Requisições de outros sites continuam bloqueadas.
 
 ## Testar agora, sem configurar Neon
 
-Requisito: **Node.js 22 ou superior**. No terminal, dentro do projeto:
+Requisito: **Node.js 22.12 ou superior**. No terminal, dentro do projeto:
 
 ```powershell
 cd apps/web
@@ -93,12 +103,12 @@ Para diagnosticar uma instalação, com o servidor parado:
 npm run doctor
 ```
 
-| Sintoma | Verificação |
-| --- | --- |
-| Catálogo vazio | `doctor` distingue falha no banco de catálogo sem serviços. Em `/admin/servicos`, cadastre ao menos um serviço e marque-o como ativo. |
-| Erro ao consultar horários | Confira a conexão/migrações. A tela agora exibe erro com botão para tentar novamente; não diz que a agenda está cheia. Sábado continua fechado. |
-| “Origem não autorizada” ou endereço inválido | Use esta versão atualizada e reinicie o servidor. `AUTH_URL` deve conter `http://` ou `https://`; execute `doctor` se o erro persistir. |
-| Login indisponível | `doctor` confere segredo, URL, migrações e conta autorizada. Execute `setup:local` para testar ou complete a configuração Neon abaixo. |
+| Sintoma                                      | Verificação                                                                                                                                     |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Catálogo vazio                               | `doctor` distingue falha no banco de catálogo sem serviços. Em `/admin/servicos`, cadastre ao menos um serviço e marque-o como ativo.           |
+| Erro ao consultar horários                   | Confira a conexão/migrações. A tela agora exibe erro com botão para tentar novamente; não diz que a agenda está cheia. Sábado continua fechado. |
+| “Origem não autorizada” ou endereço inválido | Use esta versão atualizada e reinicie o servidor. `AUTH_URL` deve conter `http://` ou `https://`; execute `doctor` se o erro persistir.         |
+| Login indisponível                           | `doctor` confere segredo, URL, migrações e conta autorizada. Execute `setup:local` para testar ou complete a configuração Neon abaixo.          |
 
 Os comandos `dev`, `start`, `doctor`, `db:migrate` e `admin:create` carregam os
 arquivos `.env`/`.env.local` no servidor; arquivos específicos do modo também são
@@ -107,7 +117,7 @@ alterar a configuração. Segredos não são enviados para o navegador.
 
 ## Usar seu banco Neon e dados reais
 
-Requisitos: Node.js 22 ou superior e um banco Neon/Postgres compatível com o driver
+Requisitos: Node.js 22.12 ou superior e um banco Neon/Postgres compatível com o driver
 Neon. Este projeto usa **npm**; o lockfile oficial é `apps/web/package-lock.json`.
 
 Se você já usou `setup:local`, pare o servidor e renomeie `.env.local` para
@@ -124,14 +134,14 @@ cp .env.example .env
 No PowerShell, use `Copy-Item .env.example .env` no lugar de `cp`.
 Preencha o `.env` local:
 
-| Variável       | Uso                                                               |
-| -------------- | ----------------------------------------------------------------- |
-| `DATABASE_DRIVER` | `neon` para o banco real; `local` é exclusivo dos testes locais |
-| `DATABASE_URL` | String de conexão fornecida pelo Neon                             |
-| `AUTH_SECRET`  | Segredo aleatório e estável usado nas sessões                     |
-| `AUTH_URL`     | `http://localhost:4000` localmente; origem HTTPS real em produção |
-| `ADMIN_EMAILS` | E-mails da equipe, separados por vírgula                          |
-| `PORT`         | Porta do servidor, normalmente definida também pela hospedagem    |
+| Variável          | Uso                                                               |
+| ----------------- | ----------------------------------------------------------------- |
+| `DATABASE_DRIVER` | `neon` para o banco real; `local` é exclusivo dos testes locais   |
+| `DATABASE_URL`    | String de conexão fornecida pelo Neon                             |
+| `AUTH_SECRET`     | Segredo aleatório e estável usado nas sessões                     |
+| `AUTH_URL`        | `http://localhost:4000` localmente; origem HTTPS real em produção |
+| `ADMIN_EMAILS`    | E-mails da equipe, separados por vírgula                          |
+| `PORT`            | Porta do servidor, normalmente definida também pela hospedagem    |
 
 Gere o segredo uma única vez:
 
@@ -164,6 +174,12 @@ As migrações versionadas estão em `apps/web/migrations`:
    telefone, preservando os dados existentes.
 4. `004_products.sql`: cria o catálogo de produtos, sem alterar estoque interno,
    clientes, serviços, reservas ou contas. Não insere produtos fictícios.
+5. `005_catalog_photos.sql`: galerias ordenadas e armazenamento de novas fotos;
+   preserva as capas existentes.
+6. `006_stock_alerts.sql`: avisos persistentes e gatilho de estoque; inclui os
+   produtos que já estavam com pouca quantidade antes da atualização.
+7. `007_request_limits.sql`: contadores compartilhados para limitar tentativas de
+   login e agendamento, inclusive depois de reiniciar o servidor.
 
 O runner registra checksum e executa cada arquivo em transação, uma única vez.
 O schema original não estava no repositório: a base foi reconstruída a partir das
@@ -180,10 +196,15 @@ insere serviços de demonstração, quando o catálogo está vazio. Os três exe
 recebem imagens ilustrativas incluídas no projeto; instalações locais anteriores
 com esses exemplos sem imagem também as exibem, sem apagar ou recriar registros.
 Veja os arquivos, a origem e os prompts em [docs/imagens-demo.md](docs/imagens-demo.md).
-Fotos reais enviadas no admin têm prioridade sobre as imagens de demonstração. Uploads JPG, PNG e WebP até 2 MB são gravados
-como data URL junto ao registro no Postgres, sem depender do endpoint privado da
-Anything. Também é possível usar uma URL HTTPS de imagem. Para galerias grandes,
-recomenda-se posteriormente migrar os arquivos para um serviço de objetos/CDN.
+Fotos reais enviadas no admin têm prioridade sobre as imagens de demonstração.
+Serviços e produtos aceitam até 8 fotos JPG, PNG ou WebP de até 2 MB cada, ou links
+HTTPS. Em **Adicionar fotos**, selecione vários arquivos; use **Usar como capa**
+para destacar uma foto e **Remover** para retirá-la. A primeira foto é a capa.
+As novas imagens são enviadas individualmente ao servidor e gravadas no Postgres,
+com URLs próprias e cache. O catálogo não baixa todas as novas fotos em JSON.
+Fotos antigas continuam válidas. A galeria geral e o modelo personalizado de
+agendamento mantêm o upload anterior de uma foto. Arquivos retirados de um item
+permanecem no banco; limpeza de arquivos órfãos e CDN podem ser adotadas depois.
 
 O logo fornecido foi aplicado no site, no agendamento, no acesso e no admin.
 O arquivo está em `apps/web/public/brand/sabrina-braids.svg`; a arte foi preservada,
@@ -199,7 +220,8 @@ WhatsApp `+55 21 99366-2669` e Instagram `@sabrin_braids` foram mantidos.
 1. Entre em `/admin` e abra **Produtos** (`/admin/produtos`).
 2. Clique em **Adicionar produto** e informe nome, categoria, descrição e preço.
    O preço é opcional: em branco, o site mostra **Preço sob consulta**.
-3. Envie a foto real em JPG, PNG ou WebP de até 2 MB, ou informe um endereço HTTPS.
+3. Envie até 8 fotos reais em JPG, PNG ou WebP de até 2 MB cada, ou adicione links HTTPS.
+   A primeira foto é a capa; use **Usar como capa** para trocar.
 4. Marque **Exibir no site** e salve. Uma foto é obrigatória para publicar;
    desmarque essa opção se quiser guardar um rascunho sem foto.
 5. Use **Editar** para atualizar o item, **Ocultar** para tirá-lo do catálogo e
@@ -264,10 +286,48 @@ Antes de abrir ao público: testar login real, cadastrar um serviço e foto reai
 fazer um agendamento, confirmar/concluir, verificar o financeiro e abrir no celular.
 Não há deploy automático neste repositório; o workflow valida o código em PRs.
 
-Validação desta revisão: **26 testes**, build, typecheck e teste integrado com
-servidor de produção e banco persistido local. O Chromium verificou o servidor de
-desenvolvimento com APIs reais: login, logo, endereço e expediente, cadastro com
-upload, rascunho sem foto, preço opcional, categorias, edição, ocultar/republicar,
-links de WhatsApp e agendamento na sexta-feira terminando às 14h30.
-Catálogo e admin foram conferidos em 390 px, sem rolagem horizontal ou exceções no
-navegador. O banco de produção Neon e a hospedagem não foram alterados.
+Validação desta revisão: **34 testes**, build, typecheck, auditoria das dependências
+sem vulnerabilidades reportadas e teste HTTP com servidor de produção e banco
+persistido. O Chromium verificou o **build de produção**, com CSP ativa: login,
+banner e links, botão de topo, upload de várias fotos, capa/remoção, galerias,
+agendamento e avisos de estoque (3 → 2 → 8 → 0), leitura e persistência.
+Catálogo e admin foram conferidos em 390 px, sem rolagem horizontal, exceções ou
+violações de CSP. Não foi executado deploy nem acesso ao banco Neon real.
+
+## Avisos de estoque
+
+O painel **Avisos de estoque** aparece em todas as páginas administrativas e se
+atualiza a cada 30 segundos, ao voltar à janela e após salvar alterações. Também
+exibe um aviso temporário para novos alertas. Os alertas são **dentro do admin**;
+não são mensagens automáticas no WhatsApp, e-mail ou notificações push com o
+navegador fechado.
+
+O limite é `max(3, quantidade mínima configurada)`. Uma nova quantidade abaixo
+ou igual ao limite renova o aviso; repor acima dele resolve a pendência. Marcar
+como lido é compartilhado com a equipe e não esconde o item que ainda precisa de
+reposição. O catálogo de venda e o estoque interno continuam separados.
+
+## Segurança e produção
+
+- Dependências vulneráveis atualizadas e integração PDF não utilizada removida.
+- Rotas antigas de exportação de tokens (`/api/auth/token` e
+  `/api/auth/expo-web-success`) removidas da entrega web; autenticação fica em
+  cookie HttpOnly, com Secure em HTTPS e sessão de 8 horas.
+- CSP com nonce por resposta em produção; bloqueio de iframe, scripts injetados,
+  formulários externos e tipos de upload não permitidos.
+- Origem verificada nas mutações, JSON exigido fora das rotas de autenticação,
+  limite de 4 MB por requisição e imagens de até 2 MB com assinatura verificada.
+- Login: até 20 tentativas por IP em 15 minutos. Agendamento: até 8 tentativas
+  por IP em 15 minutos. Resposta 429 inclui `Retry-After`. Contadores ficam no
+  Postgres, com HMAC do endereço; não armazenam IP em texto e não zeram no restart.
+- `TRUST_PROXY_HOPS=0` localmente. Na hospedagem, configurar somente depois de
+  verificar a cadeia de proxies; cabeçalhos de origem encaminhada não são aceitos
+  por padrão. A proteção da borda da hospedagem complementa os limites do app.
+- Servidor de desenvolvimento limitado a loopback e nomes locais. Produção
+  recusa banco local, URL sem HTTPS, segredo curto ou equipe sem configuração.
+
+Para a publicação, consulte [docs/publicacao.md](docs/publicacao.md).
+O código inclui `Dockerfile`, diagnóstico `npm run check:production` e CI com
+verificação de dependências. Conexão real ao Neon, proxy, domínio, backup e teste
+externo continuam dependendo do ambiente de hospedagem. Isso não representa uma
+auditoria de segurança completa nem certificação do sistema.

@@ -46,7 +46,7 @@ export default function EstoquePage() {
     <AdminLayout>
       <PageHeading
         title="Estoque"
-        description="Controle os materiais e saiba o que precisa repor."
+        description="Controle os materiais. Você recebe um aviso no admin quando restam 3 unidades ou menos."
       >
         <button className={buttonClass} onClick={() => setEditing({})}>
           Novo produto
@@ -69,9 +69,11 @@ export default function EstoquePage() {
                 <span className="text-base font-normal">{item.unit}</span>
               </p>
               <p className="mb-4 text-sm text-[#725744]">
-                Mínimo: {item.min_quantity} {item.unit}
+                Avisar com: {Math.max(3, Number(item.min_quantity))} {item.unit}{" "}
+                ou menos
               </p>
-              {Number(item.quantity) <= Number(item.min_quantity) && (
+              {Number(item.quantity) <=
+                Math.max(3, Number(item.min_quantity)) && (
                 <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
                   Hora de repor este produto
                 </p>
@@ -136,7 +138,7 @@ export default function EstoquePage() {
                 type="number"
                 min="0"
                 step="1"
-                defaultValue={editing.min_quantity ?? 1}
+                defaultValue={editing.min_quantity ?? 3}
                 className={inputClass}
               />
             </Field>

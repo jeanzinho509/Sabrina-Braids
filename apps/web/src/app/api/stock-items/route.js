@@ -1,3 +1,4 @@
+import { validateStock } from "@/app/api/utils/stock";
 import sql from "@/app/api/utils/sql";
 import { requireAdmin } from "@/app/api/utils/admin";
 
@@ -11,6 +12,11 @@ export async function GET() {
     const items = await sql`SELECT * FROM stock_items ORDER BY name ASC`;
     return Response.json({ items });
   } catch (error) {
+    if (error instanceof SyntaxError)
+      return Response.json(
+        { error: "Dados do estoque inválidos." },
+        { status: 400 },
+      );
     console.error("Error fetching stock items:", error);
     return Response.json({ error: "Erro ao buscar estoque" }, { status: 500 });
   }
@@ -24,17 +30,9 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    if (
-      [body.quantity, body.minQuantity].some(
-        (value) =>
-          value !== undefined &&
-          (!Number.isInteger(Number(value)) || Number(value) < 0),
-      )
-    )
-      return Response.json(
-        { error: "As quantidades devem ser inteiros não negativos." },
-        { status: 400 },
-      );
+    const validationError = validateStock(body, false);
+    if (validationError)
+      return Response.json({ error: validationError }, { status: 400 });
     const { name, quantity, minQuantity, unit } = body;
 
     if (!name) {
@@ -46,12 +44,17 @@ export async function POST(request) {
 
     const result = await sql`
       INSERT INTO stock_items (name, quantity, min_quantity, unit)
-      VALUES (${name}, ${quantity ?? 0}, ${minQuantity ?? 1}, ${unit || "un"})
+      VALUES (${name}, ${quantity ?? 0}, ${minQuantity ?? 3}, ${unit || "un"})
       RETURNING *
     `;
 
     return Response.json({ item: result[0] }, { status: 201 });
   } catch (error) {
+    if (error instanceof SyntaxError)
+      return Response.json(
+        { error: "Dados do estoque inválidos." },
+        { status: 400 },
+      );
     console.error("Error creating stock item:", error);
     return Response.json(
       { error: "Erro ao criar item de estoque" },

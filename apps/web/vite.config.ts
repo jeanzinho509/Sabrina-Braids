@@ -83,8 +83,8 @@ export default defineConfig(({ mode }) => {
     },
     clearScreen: false,
     server: {
-      allowedHosts: true,
-      host: process.env.DATABASE_DRIVER === "local" ? "127.0.0.1" : "0.0.0.0",
+      allowedHosts: ["localhost", "127.0.0.1"],
+      host: "127.0.0.1",
       port: Number(process.env.PORT || 4000),
       strictPort: true,
       fs: {

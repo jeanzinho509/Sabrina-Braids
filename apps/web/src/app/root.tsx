@@ -13,6 +13,7 @@ import {
 import { SessionProvider } from "@hono/auth-js/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
+import BackToTop from "@/components/BackToTop";
 import "./global.css";
 
 export function loader() {
@@ -46,6 +47,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </head>
       <body>
         {children}
+        <BackToTop />
         <Toaster position="top-center" richColors />
         <ScrollRestoration />
         <Scripts />
@@ -66,7 +68,7 @@ export function ErrorBoundary() {
       <p className="mb-6 text-gray-600">
         Tente novamente em instantes ou volte para o início.
       </p>
-      <a href="/" className="rounded-xl bg-[#1a1513] px-5 py-3 text-white">
+      <a href="/" className="rounded-xl bg-[#29321f] px-5 py-3 text-white">
         Voltar ao site
       </a>
     </main>

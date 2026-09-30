@@ -1,3 +1,5 @@
+import { validProductId } from "@/app/api/utils/products";
+import { validateStock } from "@/app/api/utils/stock";
 import sql from "@/app/api/utils/sql";
 import { requireAdmin } from "@/app/api/utils/admin";
 
@@ -9,18 +11,12 @@ export async function PUT(request, { params }) {
 
   try {
     const { id } = params;
+    if (!validProductId(id))
+      return Response.json({ error: "Item inválido." }, { status: 400 });
     const body = await request.json();
-    if (
-      [body.quantity, body.minQuantity].some(
-        (value) =>
-          value !== undefined &&
-          (!Number.isInteger(Number(value)) || Number(value) < 0),
-      )
-    )
-      return Response.json(
-        { error: "As quantidades devem ser inteiros não negativos." },
-        { status: 400 },
-      );
+    const validationError = validateStock(body, true);
+    if (validationError)
+      return Response.json({ error: validationError }, { status: 400 });
     const { name, quantity, minQuantity, unit } = body;
 
     const result = await sql`
@@ -41,6 +37,11 @@ export async function PUT(request, { params }) {
 
     return Response.json({ item: result[0] });
   } catch (error) {
+    if (error instanceof SyntaxError)
+      return Response.json(
+        { error: "Dados do estoque inválidos." },
+        { status: 400 },
+      );
     console.error("Error updating stock item:", error);
     return Response.json(
       { error: "Erro ao atualizar item de estoque" },
@@ -57,6 +58,8 @@ export async function DELETE(request, { params }) {
 
   try {
     const { id } = params;
+    if (!validProductId(id))
+      return Response.json({ error: "Item inválido." }, { status: 400 });
     const result =
       await sql`DELETE FROM stock_items WHERE id = ${id} RETURNING id`;
 
@@ -66,6 +69,11 @@ export async function DELETE(request, { params }) {
 
     return Response.json({ message: "Item removido com sucesso" });
   } catch (error) {
+    if (error instanceof SyntaxError)
+      return Response.json(
+        { error: "Dados do estoque inválidos." },
+        { status: 400 },
+      );
     console.error("Error deleting stock item:", error);
     return Response.json(
       { error: "Erro ao remover item de estoque" },

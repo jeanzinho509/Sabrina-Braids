@@ -134,6 +134,26 @@ try {
     403,
   );
   assert.equal((await request("/brand/sabrina-braids.svg")).status, 200);
+  assert.equal((await request("/brand/sabrina-banner.webp")).status, 200);
+  const home = await request("/");
+  const csp = home.headers.get("content-security-policy");
+  const nonce = /'nonce-([^']+)'/.exec(csp)?.[1];
+  assert.ok(nonce, "Production HTML needs a CSP nonce");
+  assert.ok((await home.text()).includes(`nonce="${nonce}"`));
+  assert.equal(home.headers.get("x-frame-options"), "DENY");
+  assert.equal((await request("/api/auth/token")).status, 404);
+  assert.equal((await request("/api/auth/expo-web-success")).status, 404);
+  assert.equal((await request("/api/stock-alerts")).status, 403);
+  assert.equal(
+    (await request("/api/media", { method: "POST", body: "{}" })).status,
+    403,
+  );
+  const absentOrigin = await fetch(base + "/api/products", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  assert.equal(absentOrigin.status, 403);
   assert.deepEqual((await json("/api/products")).products, []);
   assert.equal((await request("/admin")).status, 200);
   assert.equal((await request("/not-a-page")).status, 404);
@@ -208,6 +228,52 @@ try {
     "OK: .env carregado, senha incorreta recusada, login e autorização reais.",
   );
 
+  const asset = await json("/api/media", {
+    authenticated: true,
+    method: "POST",
+    body: JSON.stringify({
+      image:
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+kL9sAAAAASUVORK5CYII=",
+    }),
+  });
+  const imageResponse = await request(asset.url);
+  assert.equal(imageResponse.headers.get("content-type"), "image/png");
+  assert.match(imageResponse.headers.get("cache-control"), /immutable/);
+  assert.equal(
+    (
+      await request(asset.url, {
+        headers: { "If-None-Match": imageResponse.headers.get("etag") },
+      })
+    ).status,
+    304,
+  );
+  const stock = await json("/api/stock-items", {
+    authenticated: true,
+    method: "POST",
+    body: JSON.stringify({
+      name: "Mousse do estoque",
+      quantity: 3,
+      minQuantity: 0,
+    }),
+  });
+  let alerts = await json("/api/stock-alerts", { authenticated: true });
+  assert.equal(alerts.unread, 1);
+  await json("/api/stock-alerts", {
+    authenticated: true,
+    method: "PATCH",
+    body: JSON.stringify({
+      alerts: [{ id: stock.item.id, version: alerts.alerts[0].version }],
+    }),
+  });
+  assert.equal(
+    (await json("/api/stock-alerts", { authenticated: true })).unread,
+    0,
+  );
+  await json(`/api/stock-items/${stock.item.id}`, {
+    authenticated: true,
+    method: "PUT",
+    body: JSON.stringify({ quantity: 2 }),
+  });
   const product = await json("/api/products", {
     authenticated: true,
     method: "POST",
@@ -215,8 +281,7 @@ try {
       name: "Mousse de teste",
       category: "Finalizadores",
       price: 25.9,
-      image_url:
-        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+kL9sAAAAASUVORK5CYII=",
+      image_urls: [asset.url, "https://example.test/second.jpg"],
       active: true,
       available: true,
     }),
@@ -375,6 +440,11 @@ try {
 
   await stop();
   await start();
+  assert.equal(
+    (await json("/api/stock-alerts", { authenticated: true })).unread,
+    1,
+  );
+  assert.equal((await request(asset.url)).status, 200);
   assert.ok(
     (await json("/api/services")).services.some(
       (item) => item.id === saved.service.id,
@@ -444,6 +514,45 @@ try {
     "OK: login, agendamento e saída também via localhost, com AUTH_URL em outra porta; origem externa recusada.",
   );
 
+  let rate;
+  for (let i = 0; i < 10; i++) {
+    rate = await request("/api/appointments", {
+      method: "POST",
+      body: "{}",
+      headers: { "X-Forwarded-For": `192.0.2.${i + 1}` },
+    });
+    if (rate.status === 429) break;
+    assert.equal(rate.status, 400);
+  }
+  assert.equal(rate.status, 429);
+  assert.ok(Number(rate.headers.get("retry-after")) > 0);
+  await stop();
+  await start();
+  assert.equal(
+    (await request("/api/appointments", { method: "POST", body: "{}" })).status,
+    429,
+  );
+  for (let i = 0; i < 22; i++) {
+    rate = await request("/api/auth/callback/credentials-signin", {
+      method: "POST",
+      authenticated: true,
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "X-Auth-Return-Redirect": "1",
+      },
+      body: new URLSearchParams({
+        csrfToken,
+        email,
+        password: "wrong",
+        callbackUrl: base + "/admin",
+      }).toString(),
+    });
+    if (rate.status === 429) break;
+  }
+  assert.equal(rate.status, 429);
+  console.log(
+    "OK: galerias, mídia com cache, alertas persistentes, CSP, token desativado e limites de login/agendamento resistentes a reinício e cabeçalho falso.",
+  );
   await stop();
   await writeFile(
     configPath,
