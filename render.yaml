@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+# O banco permanece no Neon. Prepare as migrações e a conta admin antes do release.
+services:
+  - type: web
+    name: sabrina-braids
+    runtime: node
+    plan: free
+    region: virginia
+    branch: main
+    rootDir: apps/web
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_DRIVER
+        value: neon
+      - key: DATABASE_URL
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: AUTH_URL
+        fromService:
+          name: sabrina-braids
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: TRUST_PROXY_HOPS
+        value: "0"
+
+previews:
+  generation: "off"

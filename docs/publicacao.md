@@ -5,6 +5,35 @@ estático: login, agenda, estoque e fotos precisam do servidor e do banco.
 Nenhuma hospedagem foi criada nesta revisão. Render e Neon são opções compatíveis;
 as contas e o ambiente de produção precisam ser conectados antes do deploy.
 
+## Configuração versionada do Render
+
+O arquivo `render.yaml`, na raiz, configura um único Web Service Node em
+`apps/web`, com o banco externo no Neon. Usa o plano gratuito para não contratar
+recursos pagos automaticamente. Esse plano suspende o serviço após inatividade;
+a primeira visita pode demorar a responder. Avaliar um plano sem suspensão antes
+de depender do site para atendimento contínuo.
+
+A região inicial é Virginia. Conferir a região do projeto Neon antes de criar o
+serviço. O Blueprint gera `AUTH_SECRET`; `DATABASE_URL` e `ADMIN_EMAILS` são
+preenchidos no painel, sem valores secretos no repositório. `AUTH_URL` referencia
+`RENDER_EXTERNAL_URL` do próprio serviço, recebendo o endereço HTTPS real atribuído
+pelo Render. Ao adotar um domínio próprio, substituir essa referência pela origem
+HTTPS do domínio no Blueprint e na configuração do serviço.
+
+Os deploys automáticos e as prévias ficam desativados durante a preparação.
+O primeiro Apply do Blueprint ainda inicia uma implantação; preparar o banco e
+a conta de administração antes dele. Executar as migrações como etapa separada,
+usando a conexão direta do Neon (sem `-pooler`); o runtime pode usar a conexão
+pooled. Validar também `TRUST_PROXY_HOPS` antes de divulgar o site.
+
+O YAML foi validado localmente contra o JSON Schema oficial do Render. A criação
+real, as permissões da conta e os limites do plano só serão confirmados no deploy.
+Se houver CLI Render autenticado, executar na raiz `render blueprints validate`
+antes do Apply. O CLI não estava disponível neste ambiente de entrega.
+
+Antes de usar o Blueprint, enviar a versão completa para o GitHub. O guia
+`docs/enviar-para-github.md` mostra como importar o pacote Git no Windows.
+
 ## Configuração do serviço
 
 | Campo                               | Valor                                                      |
@@ -91,4 +120,6 @@ verificar novamente login, agenda e financeiro.
 
 Referências: [Render — Node](https://render.com/docs/deploy-node-express-app),
 [Render — monorepos](https://render.com/docs/monorepo-support),
+[Render — Blueprint](https://render.com/docs/blueprint-spec),
+[Render — plano gratuito](https://render.com/docs/free),
 [React Router — CSP](https://reactrouter.com/how-to/security).
