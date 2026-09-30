@@ -46,6 +46,8 @@ vi.mock("@/app/api/utils/sql", () => {
     });
   return { default: sql };
 });
+import * as products from "@/app/api/products/route";
+import * as productItem from "@/app/api/products/[id]/route";
 import * as appointments from "@/app/api/appointments/route";
 import * as appointment from "@/app/api/appointments/[id]/route";
 import * as timeBlocks from "@/app/api/time-blocks/route";
@@ -77,7 +79,7 @@ const booking = (overrides) => ({
   clientPhone: "21987654321",
   serviceId: 1,
   appointmentDate: "2099-09-21",
-  startTime: "09:00",
+  startTime: "09:30",
   ...overrides,
 }); // Monday
 beforeAll(async () => {
@@ -86,6 +88,7 @@ beforeAll(async () => {
     "001_schema.sql",
     "002_booking_integrity.sql",
     "003_link_existing_clients.sql",
+    "004_products.sql",
   ])
     await state.db.exec(
       await readFile(
@@ -98,7 +101,7 @@ afterAll(async () => state.db?.close());
 beforeEach(async () => {
   state.admin = true;
   await state.db.exec(
-    "TRUNCATE financial_transactions, appointments, clients, services, time_blocks, stock_items, tasks, monthly_goals, gallery RESTART IDENTITY CASCADE",
+    "TRUNCATE financial_transactions, appointments, clients, services, time_blocks, stock_items, tasks, monthly_goals, gallery, products RESTART IDENTITY CASCADE",
   );
   await state.db.query(
     "INSERT INTO services (name, price, duration_minutes) VALUES ('Box braids', 280, 180)",
@@ -109,6 +112,10 @@ describe("operational API with a real Postgres engine", () => {
   it("denies anonymous operational reads and mutations", async () => {
     state.admin = false;
     const calls = [
+      products.GET(request("products?active=false")),
+      products.POST(request("products", "POST", {})),
+      productItem.PATCH(request("products/1", "PATCH", {}), context(1)),
+      productItem.DELETE(request("products/1", "DELETE"), context(1)),
       appointments.GET(request("appointments")),
       appointment.PATCH(
         request("appointments/1", "PATCH", { status: "completed" }),
@@ -364,5 +371,134 @@ describe("operational API with a real Postgres engine", () => {
       (await (await financial.GET(request("financial-transactions"))).json())
         .summary.totalEntradas,
     ).toBe(100);
+  });
+});
+
+describe("product catalog with real SQL", () => {
+  const body = {
+    name: "Mousse",
+    category: "Finalizadores",
+    description: "300 ml",
+    price: 35.5,
+    image_url: "https://example.test/mousse.jpg",
+    active: true,
+    available: true,
+    display_order: 0,
+  };
+  it("publishes photos and prices, protects drafts and supports editing/hiding/restoring", async () => {
+    const response = await products.POST(request("products", "POST", body));
+    expect(response.status).toBe(201);
+    const { product } = await response.json();
+    await products.POST(
+      request("products", "POST", { name: "Touca de cetim", active: false }),
+    );
+    state.admin = false;
+    let listed = (await (await products.GET(request("products"))).json())
+      .products;
+    expect(listed).toHaveLength(1);
+    expect(listed[0].image_url).toBe(body.image_url);
+    expect(Number(listed[0].price)).toBe(35.5);
+    state.admin = true;
+    expect(
+      (await (await products.GET(request("products?active=false"))).json())
+        .products,
+    ).toHaveLength(2);
+    expect(
+      (
+        await productItem.PATCH(
+          request("products/1", "PATCH", {
+            name: "Mousse hidratante",
+            price: null,
+            available: false,
+          }),
+          context(product.id),
+        )
+      ).status,
+    ).toBe(200);
+    listed = (await (await products.GET(request("products"))).json()).products;
+    expect(listed[0]).toMatchObject({
+      name: "Mousse hidratante",
+      price: null,
+      available: false,
+      image_url: body.image_url,
+    });
+    expect(
+      (
+        await productItem.DELETE(
+          request("products/1", "DELETE"),
+          context(product.id),
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (await (await products.GET(request("products"))).json()).products,
+    ).toHaveLength(0);
+    expect(
+      (
+        await productItem.PATCH(
+          request("products/1", "PATCH", { active: true }),
+          context(product.id),
+        )
+      ).status,
+    ).toBe(200);
+    expect((await state.db.query("SELECT * FROM products")).rows).toHaveLength(
+      2,
+    );
+  });
+  it("rejects publishing without a photo, invalid fields and unknown products", async () => {
+    for (const input of [
+      { ...body, image_url: "" },
+      { ...body, image_url: "javascript:alert(1)" },
+      { ...body, price: -1 },
+      { ...body, active: "true" },
+      { ...body, name: "  " },
+      { ...body, display_order: -1 },
+      { ...body, available: "false" },
+      null,
+    ])
+      expect(
+        (await products.POST(request("products", "POST", input))).status,
+      ).toBe(400);
+    expect(
+      (
+        await productItem.PATCH(
+          request("products/999", "PATCH", { name: "Missing" }),
+          context(999),
+        )
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await productItem.DELETE(
+          request("products/no", "DELETE"),
+          context("no"),
+        )
+      ).status,
+    ).toBe(400);
+    expect((await state.db.query("SELECT * FROM products")).rows).toHaveLength(
+      0,
+    );
+  });
+  it("refuses new bookings before opening or after the new closing times", async () => {
+    for (const input of [
+      booking({ startTime: "09:00" }),
+      booking({ startTime: "13:30" }),
+      booking({ appointmentDate: "2099-09-25", startTime: "12:00" }),
+    ])
+      expect(
+        (await appointments.POST(request("appointments", "POST", input)))
+          .status,
+      ).toBe(409);
+    expect(
+      (
+        await appointments.POST(
+          request(
+            "appointments",
+            "POST",
+            booking({ appointmentDate: "2099-09-25", startTime: "11:30" }),
+          ),
+        )
+      ).status,
+    ).toBe(201);
   });
 });

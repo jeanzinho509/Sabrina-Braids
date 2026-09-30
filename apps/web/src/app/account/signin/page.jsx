@@ -1,3 +1,4 @@
+import BrandLogo from "@/components/BrandLogo";
 import { useState } from "react";
 import { adminDestination, signInWithPassword } from "@/utils/authClient";
 import { inputClass, buttonClass } from "@/app/admin/components/UI";
@@ -44,7 +45,7 @@ export default function SignInPage() {
         className="w-full max-w-md space-y-5 rounded-2xl border border-[#e8dcc8] bg-white p-7"
       >
         <a href="/" className="text-sm text-[#725744]">
-          ← Sabrina Braids
+          <BrandLogo />
         </a>
         <h1 className="text-3xl font-semibold">Bem-vinda de volta</h1>
         <p className="text-sm text-[#725744]">

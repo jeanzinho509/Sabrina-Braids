@@ -6,18 +6,22 @@ não faz parte desta entrega web.
 
 ## Funcionalidades da versão web
 
-- Site público com catálogo, fotos, vídeos e WhatsApp do salão.
+- Site público com catálogo de serviços, fotos, vídeos e WhatsApp do salão.
+- Seção **Produtos**, logo após os serviços, com fotos, categorias, preço opcional
+  e consulta pelo WhatsApp. Catálogo gerenciado em `/admin/produtos`.
 - Agendamento por serviço ou modelo personalizado, com imagem e descrição.
-- Horários no fuso `America/Sao_Paulo`: domingo a quinta, 07h–19h; sexta, 08h–17h;
+- Horários no fuso `America/Sao_Paulo`: domingo a quinta, 09h30–16h; sexta, 09h30–14h30;
   sábado fechado. Horários passados, bloqueados e sobrepostos são recusados.
+  O serviço inteiro deve caber no expediente. Reservas antigas são preservadas.
 - Pedidos ficam **pendentes** até confirmação da equipe. Após salvar, a cliente
   pode clicar em **Continuar no WhatsApp**; o sistema não envia mensagens sozinho.
-- `/admin`: painel único com **Gestão e agenda** e **Site e serviços**.
+- `/admin`: painel único com **Gestão e agenda**, **Site e serviços** e **Produtos**.
 - `/admin/gestao`: resumo real do banco, agenda, clientes e histórico, financeiro,
   estoque, tarefas, metas mensais, rotina e ideias de conteúdo para Instagram.
 - `/admin/servicos`: cadastro e edição de serviços, galeria e vídeos.
+- `/admin/produtos`: cadastro, fotos, edição, disponibilidade e visibilidade de produtos.
 - Links antigos `/gestao` e `/gestao/*` redirecionam para a nova área do admin.
-  As tabelas, contas e dados são os mesmos; não é necessário migrar o banco.
+  A mudança de endereço das páginas preserva as contas e os dados da gestão.
 - Conclusão do atendimento e lançamento financeiro acontecem na mesma transação.
   A receita é registrada uma única vez, na data da conclusão, pelo valor recebido.
 - Financeiro e dashboard contabilizam apenas lançamentos marcados como pagos.
@@ -32,8 +36,18 @@ não faz parte desta entrega web.
    para os mesmos locais na nova. Se usa `.env` ou outro arquivo de ambiente,
    copie-o também. Isso preserva seu e-mail, senha, sessão, clientes e agendamentos.
    Se `DATABASE_LOCAL_PATH` foi personalizado, preserve o banco indicado ali.
-4. Na nova pasta `apps/web`, execute `npm ci`, `npm run doctor` e `npm run dev`.
-   Não precisa criar outra conta nem executar `setup:local` novamente.
+4. Na nova pasta `apps/web`, com o servidor parado, execute:
+
+   ```powershell
+   npm ci
+   npm run db:migrate
+   npm run doctor
+   npm run dev
+   ```
+
+   **Esta versão inclui a migração `004_products.sql`.** O comando cria a tabela
+   de produtos e preserva os dados existentes. Não precisa criar outra conta nem
+   executar `setup:local` novamente.
 5. Abra o endereço exibido pelo servidor e entre em `/admin` com sua senha anterior.
 
 O acesso local funciona com `localhost` e `127.0.0.1`, inclusive se a porta do
@@ -57,7 +71,7 @@ npm run dev
 O `setup:local` pede seu e-mail e uma senha de pelo menos 12 caracteres, aplica as
 migrações e cadastra três serviços **de demonstração**. Não há senha padrão. Abra
 `http://localhost:4000` e use esse mesmo e-mail/senha em `http://localhost:4000/admin`.
-`/admin` reúne a gestão, a agenda, os serviços, as fotos e os vídeos.
+`/admin` reúne a gestão, a agenda, os serviços, os produtos, as fotos e os vídeos.
 
 Esse modo usa Postgres embarcado (PGlite), com dados persistidos em
 `apps/web/.data/local`, e só escuta no computador local. É possível cadastrar um
@@ -148,6 +162,8 @@ As migrações versionadas estão em `apps/web/migrations`:
    proteção entre bloqueios e agendamentos. Usa a extensão Postgres `btree_gist`.
 3. `003_link_existing_clients.sql`: vincula agendamentos antigos aos clientes por
    telefone, preservando os dados existentes.
+4. `004_products.sql`: cria o catálogo de produtos, sem alterar estoque interno,
+   clientes, serviços, reservas ou contas. Não insere produtos fictícios.
 
 O runner registra checksum e executa cada arquivo em transação, uma única vez.
 O schema original não estava no repositório: a base foi reconstruída a partir das
@@ -169,10 +185,35 @@ como data URL junto ao registro no Postgres, sem depender do endpoint privado da
 Anything. Também é possível usar uma URL HTTPS de imagem. Para galerias grandes,
 recomenda-se posteriormente migrar os arquivos para um serviço de objetos/CDN.
 
-Dados de contato foram mantidos a partir do código existente: WhatsApp
-`+55 21 99366-2669`, Instagram `@sabrin_braids`, Rua Gâmbia, 17. Confirme esses dados
-com o salão antes da divulgação. Ideias de Instagram ficam no banco, sem publicar
-nem integrar automaticamente com a rede social.
+O logo fornecido foi aplicado no site, no agendamento, no acesso e no admin.
+O arquivo está em `apps/web/public/brand/sabrina-braids.svg`; a arte foi preservada,
+com ajuste apenas da área visível do SVG para retirar as margens vazias.
+
+Endereço: **Rua Carlos Palut, 230, Galeria da Merck, Box 10, CEP 22710-310**.
+Endereço e expediente ficam em `apps/web/src/utils/salon.js`; a agenda usa a mesma
+configuração de horários apresentada no site, no fuso `America/Sao_Paulo`.
+WhatsApp `+55 21 99366-2669` e Instagram `@sabrin_braids` foram mantidos.
+
+## Cadastrar os produtos da loja
+
+1. Entre em `/admin` e abra **Produtos** (`/admin/produtos`).
+2. Clique em **Adicionar produto** e informe nome, categoria, descrição e preço.
+   O preço é opcional: em branco, o site mostra **Preço sob consulta**.
+3. Envie a foto real em JPG, PNG ou WebP de até 2 MB, ou informe um endereço HTTPS.
+4. Marque **Exibir no site** e salve. Uma foto é obrigatória para publicar;
+   desmarque essa opção se quiser guardar um rascunho sem foto.
+5. Use **Editar** para atualizar o item, **Ocultar** para tirá-lo do catálogo e
+   **Exibir no site** para republicar. A ordem de exibição menor aparece primeiro.
+
+O catálogo começa vazio, pronto para as fotos, marcas e preços reais: gel, cera,
+gelatina, touca de cetim, mousse, durag, wig cap, presilhas, perfume de cabelo,
+finalizador, tônico capilar e outros itens. Nenhum preço ou foto de produto foi
+inventado. Produtos sem disponibilidade podem continuar visíveis com a indicação
+**Indisponível no momento** e o botão **Consultar reposição**.
+
+A cliente escolhe o produto e abre uma conversa no WhatsApp com o nome do item.
+O site não envia mensagens sozinho. Este catálogo não realiza cobrança, checkout
+ou baixa automática do estoque interno de materiais da gestão.
 
 ## Validar e publicar
 
@@ -216,17 +257,17 @@ serviço ativo/inativo, disponibilidade, agendamento, conflito, lançamento fina
 único e persistência depois de reiniciar. Repete login, agendamento e saída com
 `127.0.0.1` e `localhost`, mantendo `AUTH_URL=http://localhost:4000` e iniciando o
 servidor em outra porta. Verifica origem externa bloqueada, imagens do catálogo,
-rotas novas e redirecionamentos antigos. Também verifica a resposta sem `AUTH_SECRET`. Usa conta e senha temporárias e não depende do Neon. O banco de teste
+rotas novas, logo e redirecionamentos antigos. Testa também CRUD de produtos, fotos, rascunhos, preço opcional, persistência e limites de upload, incluindo requisições em stream. Também verifica a resposta sem `AUTH_SECRET`. Usa conta e senha temporárias e não depende do Neon. O banco de teste
 é removido ao terminar; `.env`, `.env.local` e dados do usuário ficam intactos.
 
 Antes de abrir ao público: testar login real, cadastrar um serviço e foto reais,
 fazer um agendamento, confirmar/concluir, verificar o financeiro e abrir no celular.
 Não há deploy automático neste repositório; o workflow valida o código em PRs.
 
-Validação desta revisão: **22 testes**, build, typecheck e o teste integrado do
-servidor passaram. O Chromium testou o servidor de desenvolvimento com APIs e
-banco reais pelos dois endereços locais: senha incorreta, login, painel unificado,
-imagens em registros antigos sem foto, edição de exemplo, cadastro com upload,
-catálogo, escolha de horário, reserva visível na agenda e saída da conta.
-Menu e agenda foram verificados em 390 px, sem rolagem horizontal ou exceções no
-navegador. Não houve conexão com o Neon de produção nem publicação em hospedagem.
+Validação desta revisão: **26 testes**, build, typecheck e teste integrado com
+servidor de produção e banco persistido local. O Chromium verificou o servidor de
+desenvolvimento com APIs reais: login, logo, endereço e expediente, cadastro com
+upload, rascunho sem foto, preço opcional, categorias, edição, ocultar/republicar,
+links de WhatsApp e agendamento na sexta-feira terminando às 14h30.
+Catálogo e admin foram conferidos em 390 px, sem rolagem horizontal ou exceções no
+navegador. O banco de produção Neon e a hospedagem não foram alterados.

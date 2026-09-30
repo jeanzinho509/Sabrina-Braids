@@ -128,6 +128,13 @@ try {
   assert.equal((await json("/api/system/status")).ready, true);
   assert.equal((await json("/api/services")).services.length, 3);
   assert.equal((await request("/api/appointments")).status, 403);
+  assert.equal((await request("/api/products?active=false")).status, 403);
+  assert.equal(
+    (await request("/api/products", { method: "POST", body: "{}" })).status,
+    403,
+  );
+  assert.equal((await request("/brand/sabrina-braids.svg")).status, 200);
+  assert.deepEqual((await json("/api/products")).products, []);
   assert.equal((await request("/admin")).status, 200);
   assert.equal((await request("/not-a-page")).status, 404);
   assert.equal(
@@ -136,6 +143,7 @@ try {
   );
   for (const route of [
     "/admin/servicos",
+    "/admin/produtos",
     "/admin/gestao",
     "/admin/gestao/agenda",
     "/admin/gestao/clientes",
@@ -200,6 +208,82 @@ try {
     "OK: .env carregado, senha incorreta recusada, login e autorização reais.",
   );
 
+  const product = await json("/api/products", {
+    authenticated: true,
+    method: "POST",
+    body: JSON.stringify({
+      name: "Mousse de teste",
+      category: "Finalizadores",
+      price: 25.9,
+      image_url:
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+kL9sAAAAASUVORK5CYII=",
+      active: true,
+      available: true,
+    }),
+  });
+  await json("/api/products", {
+    authenticated: true,
+    method: "POST",
+    body: JSON.stringify({ name: "Rascunho sem foto", active: false }),
+  });
+  assert.equal((await json("/api/products")).products.length, 1);
+  assert.equal(
+    (await json("/api/products?active=false", { authenticated: true })).products
+      .length,
+    2,
+  );
+  await json(`/api/products/${product.product.id}`, {
+    authenticated: true,
+    method: "PATCH",
+    body: JSON.stringify({ price: null, available: false }),
+  });
+  assert.equal((await json("/api/products")).products[0].price, null);
+  await json(`/api/products/${product.product.id}`, {
+    authenticated: true,
+    method: "DELETE",
+  });
+  assert.equal((await json("/api/products")).products.length, 0);
+  await json(`/api/products/${product.product.id}`, {
+    authenticated: true,
+    method: "PATCH",
+    body: JSON.stringify({ active: true, available: true }),
+  });
+  const streamJson = (body) =>
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(JSON.stringify(body)));
+        controller.close();
+      },
+    });
+  assert.equal(
+    (
+      await request("/api/products", {
+        authenticated: true,
+        method: "POST",
+        body: streamJson({ name: "Produto enviado em stream", active: false }),
+        duplex: "half",
+      })
+    ).status,
+    201,
+  );
+  assert.equal(
+    (
+      await request("/api/products", {
+        authenticated: true,
+        method: "POST",
+        body: streamJson({
+          name: "Grande",
+          description: "x".repeat(4 * 1024 * 1024 + 1),
+        }),
+        duplex: "half",
+      })
+    ).status,
+    413,
+  );
+  console.log(
+    "OK: produtos com imagem, preço opcional, rascunhos protegidos, edição, ocultar e republicar.",
+  );
+
   const saved = await json("/api/services", {
     authenticated: true,
     method: "POST",
@@ -231,6 +315,10 @@ try {
     `/api/appointments/available-times?date=${date}&duration=60`,
   );
   assert.ok(slots.availableSlots.length > 0);
+  assert.equal(slots.availableSlots[0].start, "09:30");
+  const closing =
+    new Date(`${date}T12:00:00Z`).getUTCDay() === 5 ? "14:30" : "16:00";
+  assert.equal(slots.availableSlots.at(-1).end, closing);
   const booking = {
     clientName: "Cliente de teste",
     clientPhone: "21987654321",
@@ -238,6 +326,15 @@ try {
     appointmentDate: date,
     startTime: slots.availableSlots[0].start,
   };
+  assert.equal(
+    (
+      await request("/api/appointments", {
+        method: "POST",
+        body: JSON.stringify({ ...booking, startTime: "09:00" }),
+      })
+    ).status,
+    409,
+  );
   const created = await json("/api/appointments", {
     method: "POST",
     body: JSON.stringify(booking),
@@ -292,8 +389,16 @@ try {
       await json(`/api/appointments/available-times?date=${date}&duration=60`)
     ).availableSlots.some((slot) => slot.start === booking.startTime),
   );
+  assert.equal(
+    (await json("/api/products")).products[0].id,
+    product.product.id,
+  );
+  assert.equal(
+    (await json("/api/products")).products[0].image_url,
+    product.product.image_url,
+  );
   console.log(
-    "OK: dados, sessão e horários reservados persistem após reiniciar o servidor.",
+    "OK: produtos, dados, sessão e horários reservados persistem após reiniciar o servidor.",
   );
 
   await stop();

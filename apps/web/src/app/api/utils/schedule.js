@@ -1,4 +1,4 @@
-import { salonDate, SALON_TIMEZONE } from "@/utils/salon";
+import { salonDate, SALON_TIMEZONE, hoursForWeekday } from "@/utils/salon";
 
 export const toMinutes = (time) => {
   const [hours, minutes] = String(time).split(":").map(Number);
@@ -29,8 +29,9 @@ export function availableSlots(
   )
     return [];
   const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
-  if (weekday === 6) return [];
-  const [start, end] = weekday === 5 ? [480, 1020] : [420, 1140];
+  const hours = hoursForWeekday(weekday);
+  if (!hours) return [];
+  const [start, end] = [toMinutes(hours.start), toMinutes(hours.end)];
   const currentTime = new Intl.DateTimeFormat("en-GB", {
     timeZone: SALON_TIMEZONE,
     hour: "2-digit",

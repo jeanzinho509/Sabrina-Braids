@@ -87,7 +87,9 @@ it("keeps available services visible when the gallery request fails", async () =
     vi.fn(async (url) =>
       url === "/api/services"
         ? response({ services: [service] })
-        : response({ error: "Unavailable" }, 500),
+        : url === "/api/products"
+          ? response({ products: [] })
+          : response({ error: "Unavailable" }, 500),
     ),
   );
   mount(<Home />);

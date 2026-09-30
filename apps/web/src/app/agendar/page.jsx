@@ -1,8 +1,14 @@
+import BrandLogo from "@/components/BrandLogo";
 import ServicePhoto from "@/components/ServicePhoto";
-("use client");
 
 import { useEffect, useRef, useState } from "react";
-import { salonDate, whatsappLink, money } from "@/utils/salon";
+import {
+  salonDate,
+  whatsappLink,
+  money,
+  SALON_HOURS_LABELS,
+  SALON_ADDRESS,
+} from "@/utils/salon";
 import { apiRequest } from "@/utils/useApi";
 import useUpload from "@/utils/useUpload";
 import { useQuery } from "@tanstack/react-query";
@@ -191,7 +197,7 @@ export default function AgendarPage() {
               href="/"
               className="text-2xl font-semibold text-gray-900 tracking-tight"
             >
-              Sabrina Tranças
+              <BrandLogo />
             </a>
             <div className="text-sm text-gray-600">Agendamento Online</div>
           </div>
@@ -463,6 +469,15 @@ export default function AgendarPage() {
             <p className="text-gray-600 mb-8">
               Selecione quando você quer fazer suas tranças
             </p>
+            <div className="mb-6 rounded-xl border border-[#e8dcc8] bg-[#fcfaf7] p-4 text-sm text-[#725744]">
+              {SALON_HOURS_LABELS.map((label) => (
+                <p key={label}>{label}</p>
+              ))}
+              <p className="mt-2">
+                Os horários disponíveis consideram a duração completa do
+                serviço.
+              </p>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -697,6 +712,10 @@ export default function AgendarPage() {
               pelo WhatsApp para combinar os detalhes.
             </p>
 
+            <p className="mb-6 text-sm text-gray-600">
+              {SALON_ADDRESS.street} · {SALON_ADDRESS.complement} · CEP{" "}
+              {SALON_ADDRESS.postalCode}
+            </p>
             <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-md mx-auto mb-8">
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">

@@ -34,9 +34,13 @@ export function Layout({ children }: { children: ReactNode }) {
         <title>Sabrina Braids | Tranças e agendamento</title>
         <meta
           name="description"
-          content="Conheça os serviços da Sabrina Braids, veja nossos trabalhos e agende seu horário para tranças."
+          content="Conheça os serviços e produtos da Sabrina Braids, veja nossos trabalhos e agende seu horário para tranças."
         />
-        <link rel="icon" href="/favicon.svg" />
+        <link
+          rel="icon"
+          type="image/svg+xml"
+          href="/brand/sabrina-braids.svg"
+        />
         <Meta />
         <Links />
       </head>

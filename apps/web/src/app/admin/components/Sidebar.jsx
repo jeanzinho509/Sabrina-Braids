@@ -1,3 +1,4 @@
+import BrandLogo from "@/components/BrandLogo";
 import { Link, useLocation } from "react-router";
 import {
   Home,
@@ -9,6 +10,7 @@ import {
   CheckSquare,
   Coffee,
   Images,
+  ShoppingBag,
   LayoutDashboard,
 } from "lucide-react";
 
@@ -37,7 +39,10 @@ const groups = [
   },
   {
     title: "Site",
-    items: [{ name: "Site e serviços", path: "/admin/servicos", icon: Images }],
+    items: [
+      { name: "Site e serviços", path: "/admin/servicos", icon: Images },
+      { name: "Produtos", path: "/admin/produtos", icon: ShoppingBag },
+    ],
   },
 ];
 
@@ -50,7 +55,7 @@ export function Sidebar() {
           to="/admin"
           className="text-2xl font-semibold tracking-tight text-white"
         >
-          Sabrina Braids
+          <BrandLogo compact />
         </Link>
         <p className="mt-1 text-sm text-[#c8a58a]">Painel do salão</p>
       </div>

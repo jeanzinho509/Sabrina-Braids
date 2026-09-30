@@ -49,14 +49,27 @@ app.use("/api/*", async (c, next) => {
   }
   return next();
 });
-app.use(
-  "*",
-  bodyLimit({
-    maxSize: 4 * 1024 * 1024,
-    onError: (c) =>
-      c.json({ error: "Arquivo muito grande. Use imagens de até 2 MB." }, 413),
-  }),
-);
+const limitBody = bodyLimit({
+  maxSize: 4 * 1024 * 1024,
+  onError: (c) =>
+    c.json({ error: "Arquivo muito grande. Use imagens de até 2 MB." }, 413),
+});
+app.use("*", (c, next) => {
+  const incoming = c.req.raw;
+  if (incoming.body) {
+    // The Node adapter exposes a lightweight Request. Normalize via URL + init
+    // before bodyLimit clones streamed requests with the native constructor.
+    const init = {
+      method: incoming.method,
+      headers: incoming.headers,
+      body: incoming.body,
+      signal: incoming.signal,
+      duplex: "half",
+    };
+    c.req.raw = new Request(incoming.url, init);
+  }
+  return limitBody(c, next);
+});
 app.onError((error, c) => {
   console.error(error);
   return c.json({ error: "Não foi possível concluir a solicitação." }, 500);

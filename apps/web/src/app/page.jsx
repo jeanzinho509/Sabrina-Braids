@@ -1,9 +1,10 @@
+import BrandLogo from "@/components/BrandLogo";
+import ProductsSection from "@/components/ProductsSection";
 import ServicePhoto from "@/components/ServicePhoto";
-("use client");
 
 import { useEffect, useState } from "react";
 import { apiRequest } from "@/utils/useApi";
-import { money } from "@/utils/salon";
+import { money, SALON_ADDRESS, SALON_HOURS_LABELS } from "@/utils/salon";
 
 export default function HomePage() {
   const [loadErrors, setLoadErrors] = useState([]);
@@ -82,15 +83,25 @@ export default function HomePage() {
       <header className="border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
-              Sabrina Tranças
-            </h1>
+            <a
+              href="/"
+              aria-label="Sabrina Braids — início"
+              className="text-gray-900"
+            >
+              <BrandLogo />
+            </a>
             <nav className="flex flex-wrap items-center gap-4">
               <a
                 href="#services"
                 className="text-sm text-gray-600 hover:text-gray-900"
               >
                 Serviços
+              </a>
+              <a
+                href="#products"
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                Produtos
               </a>
               <a
                 href="#about"
@@ -119,9 +130,9 @@ export default function HomePage() {
                 Aceito novos agendamentos
               </span>
             </div>
-            <h2 className="text-4xl sm:text-5xl font-semibold text-gray-900 tracking-tight mb-6">
+            <h1 className="text-4xl sm:text-5xl font-semibold text-gray-900 tracking-tight mb-6">
               Transforme seu visual com tranças exclusivas
-            </h2>
+            </h1>
             <p className="text-lg text-gray-600 mb-8 leading-relaxed">
               Especialista em box braids, knotless, passion twists e muito mais.
               Mais de 5 anos de experiência criando penteados únicos que
@@ -208,7 +219,7 @@ export default function HomePage() {
                   src={gallery[currentImageIndex]?.image_url}
                   alt={
                     gallery[currentImageIndex]?.caption ||
-                    "Galeria Sabrina Tranças"
+                    "Galeria Sabrina Braids"
                   }
                   className="w-full h-full object-cover"
                 />
@@ -422,12 +433,15 @@ export default function HomePage() {
         </div>
       </section>
 
+      <ProductsSection />
+
       {/* About Section */}
+
       <section id="about" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center">
             <h3 className="text-3xl font-semibold text-gray-900 tracking-tight mb-6">
-              Sobre Sabrina Tranças
+              Sobre Sabrina Braids
             </h3>
             <p className="text-lg text-gray-600 leading-relaxed mb-6">
               Com mais de 5 anos de experiência, sou especialista em diversos
@@ -480,9 +494,13 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">
-                Sabrina Tranças
-              </h4>
+              <a
+                href="/"
+                aria-label="Sabrina Braids — início"
+                className="mb-4 inline-block text-gray-900"
+              >
+                <BrandLogo />
+              </a>
               <p className="text-sm text-gray-600">
                 Transformando cabelos em obras de arte
               </p>
@@ -492,8 +510,11 @@ export default function HomePage() {
                 Contato
               </h4>
               <div className="space-y-2 text-sm text-gray-600">
-                <p>Rua Gâmbia, 17</p>
-                <p>CEP 22775-400</p>
+                <address className="not-italic">
+                  <p>{SALON_ADDRESS.street}</p>
+                  <p>{SALON_ADDRESS.complement}</p>
+                  <p>CEP {SALON_ADDRESS.postalCode}</p>
+                </address>
                 <p className="mt-3">WhatsApp: (21) 99366-2669</p>
                 <p>WhatsApp: (21) 97373-5791</p>
                 <p className="mt-3">
@@ -528,14 +549,19 @@ export default function HomePage() {
                 Horário
               </h4>
               <div className="space-y-2 text-sm text-gray-600">
-                <p>Domingo a Quinta: 07h às 19h</p>
-                <p>Sexta-feira: 08h às 17h</p>
-                <p className="text-red-600 font-medium">Sábado: Fechado</p>
+                {SALON_HOURS_LABELS.map((label, index) => (
+                  <p
+                    key={label}
+                    className={index === 2 ? "text-red-600 font-medium" : ""}
+                  >
+                    {label}
+                  </p>
+                ))}
               </div>
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-gray-200 text-center text-sm text-gray-600">
-            © {new Date().getFullYear()} Sabrina Tranças. Todos os direitos
+            © {new Date().getFullYear()} Sabrina Braids. Todos os direitos
             reservados.
           </div>
         </div>

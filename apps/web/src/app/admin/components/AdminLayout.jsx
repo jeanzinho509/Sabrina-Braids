@@ -1,3 +1,4 @@
+import BrandLogo from "@/components/BrandLogo";
 import { useEffect, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import useUser from "@/utils/useUser";
@@ -35,7 +36,7 @@ export function AdminLayout({ children }) {
     <div className="min-h-screen bg-[#f7f5f2] font-inter text-[#1a1513] lg:flex">
       <div className="flex items-center justify-between bg-[#1a1513] px-4 py-4 text-white lg:hidden">
         <a href="/admin" className="font-semibold">
-          Sabrina Braids
+          <BrandLogo compact />
         </a>
         <button
           onClick={() => setMenuOpen(!menuOpen)}

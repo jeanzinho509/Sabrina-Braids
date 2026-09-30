@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { CalendarDays, Images, ArrowRight } from "lucide-react";
+import { CalendarDays, Images, ArrowRight, ShoppingBag } from "lucide-react";
 import { AdminLayout } from "./components/AdminLayout";
 import { PageHeading } from "./components/UI";
 
@@ -19,6 +19,13 @@ export default function AdminPage() {
       href: "/admin/servicos",
       icon: Images,
     },
+    {
+      title: "Produtos",
+      description:
+        "Adicione os produtos da loja com fotos, preços e disponibilidade para as clientes.",
+      href: "/admin/produtos",
+      icon: ShoppingBag,
+    },
   ];
   return (
     <AdminLayout>
@@ -26,7 +33,7 @@ export default function AdminPage() {
         title="Painel do salão"
         description="Tudo o que você precisa para cuidar da Sabrina Braids, em um só lugar."
       />
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-5 xl:grid-cols-3">
         {areas.map((area) => (
           <Link
             key={area.href}
