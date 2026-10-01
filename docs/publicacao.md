@@ -69,6 +69,13 @@ chat nem pelo GitHub. Se existir mais de um proxy, validar o endereço efetivo a
 de mudar `TRUST_PROXY_HOPS`; uma configuração errada pode agrupar clientes no mesmo
 limite ou permitir falsificação de endereço.
 
+No serviço `sabrina-braids.onrender.com`, `TRUST_PROXY_HOPS=3` foi validado em
+1º de outubro de 2026 (UTC): duas requisições com endereços encaminhados falsos
+incrementaram somente o contador associado ao IP real. Os endereços falsos não
+ganharam contadores. O teste usou corpos inválidos e não criou agendamentos.
+Esse valor se aplica à infraestrutura verificada; validar novamente ao mudar
+de host ou adicionar outro proxy/CDN. O Blueprint genérico conserva o padrão 0.
+
 ## Banco e entrada em operação
 
 1. Escolher o projeto/branch Neon de produção e manter backup ou branch de restauração

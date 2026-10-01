@@ -25,6 +25,23 @@
   }
 }
 
+.brand-logo {
+  /* Embedded SVG media queries inherit this scheme. Keep it independent
+     from the light palette used by the rest of the interface. */
+  color-scheme: light;
+}
+.brand-logo__image {
+  background-color: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  .brand-logo {
+    color-scheme: dark;
+  }
+  .brand-logo__image {
+    background-color: #171b15;
+  }
+}
+
 .banner-hotspot {
   position: absolute;
   border-radius: 0.5rem;

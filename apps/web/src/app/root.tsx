@@ -40,7 +40,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <link
           rel="icon"
           type="image/svg+xml"
-          href="/brand/sabrina-braids.svg"
+          sizes="any"
+          href="/brand/sabrina-braids.svg?v=2"
         />
         <Meta />
         <Links />

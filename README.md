@@ -209,6 +209,9 @@ permanecem no banco; limpeza de arquivos órfãos e CDN podem ser adotadas depoi
 O logo fornecido foi aplicado no site, no agendamento, no acesso e no admin.
 O arquivo está em `apps/web/public/brand/sabrina-braids.svg`; a arte foi preservada,
 com ajuste apenas da área visível do SVG para retirar as margens vazias.
+O logo e o ícone da aba acompanham o tema do dispositivo: no modo escuro, os
+traços ficam claros e o fundo escuro. A troca usa CSS, preserva a arte original
+e funciona sem JavaScript. O restante da interface mantém sua paleta atual.
 
 Endereço: **Rua Carlos Palut, 230, Galeria da Merck, Box 10, CEP 22710-310**.
 Endereço e expediente ficam em `apps/web/src/utils/salon.js`; a agenda usa a mesma
