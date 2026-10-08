@@ -1,8 +1,9 @@
 import PhotoEditor from "@/components/PhotoEditor";
+import PhotoCropper from "@/components/PhotoCropper";
 import { itemPhotos } from "@/utils/photos";
 import ServicePhoto from "@/components/ServicePhoto";
 import { serviceImage, isDemoImage } from "@/utils/demoCatalog";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AdminLayout } from "@/app/admin/components/AdminLayout";
 import {
@@ -24,6 +25,19 @@ const tabs = { services: "Serviços", gallery: "Galeria", videos: "Vídeos" };
 function Editor({ tab, item, onClose }) {
   const save = useSave();
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [cropping, setCropping] = useState(false);
+  const cropButton = useRef(null);
+  const returnToCropButton = useRef(false);
+  useEffect(() => {
+    if (!cropping && returnToCropButton.current) {
+      cropButton.current?.focus();
+      returnToCropButton.current = false;
+    }
+  }, [cropping]);
+  function finishCrop() {
+    returnToCropButton.current = true;
+    setCropping(false);
+  }
   const [photos, setPhotos] = useState(() => {
     const current = itemPhotos(item);
     return current.length
@@ -38,6 +52,7 @@ function Editor({ tab, item, onClose }) {
   );
   async function selectImage(event) {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
     const result = await upload({ file });
     if (result.error) toast.error(result.error);
@@ -45,6 +60,7 @@ function Editor({ tab, item, onClose }) {
   }
   async function submit(event) {
     event.preventDefault();
+    if (save.isPending || uploading || photoBusy || cropping) return;
     const values = Object.fromEntries(new FormData(event.currentTarget));
     let body = values;
     if (tab === "services")
@@ -94,7 +110,7 @@ function Editor({ tab, item, onClose }) {
   return (
     <Modal
       title={`${item.id ? "Editar" : "Adicionar"} · ${tabs[tab]}`}
-      busy={save.isPending || uploading || photoBusy}
+      busy={save.isPending || uploading || photoBusy || cropping}
       onClose={onClose}
     >
       <form onSubmit={submit} className="space-y-4">
@@ -186,45 +202,73 @@ function Editor({ tab, item, onClose }) {
         )}
         {tab === "gallery" && (
           <>
-            <Field label="Imagem (JPG, PNG ou WebP, até 2 MB)">
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={selectImage}
-                className="block w-full text-sm"
+            {cropping && (
+              <PhotoCropper
+                src={imageUrl}
+                onCancel={finishCrop}
+                onApply={async (file) => {
+                  const result = await upload({ file });
+                  if (result.error) throw new Error(result.error);
+                  setImageUrl(result.url);
+                  finishCrop();
+                }}
               />
-            </Field>
-            <Field label="Ou endereço HTTPS da imagem">
-              <input
-                type="url"
-                placeholder="https://..."
-                value={imageUrl.startsWith("https:") ? imageUrl : ""}
-                onChange={(event) => setImageUrl(event.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            {imageUrl && (
-              <div>
-                <img
-                  src={imageUrl}
-                  alt="Prévia da imagem"
-                  className="h-40 w-full rounded-xl object-cover"
-                />
-                {isDemoImage(imageUrl) && (
-                  <p className="mt-2 text-xs text-[#725744]">
-                    Imagem ilustrativa. Envie uma foto real para substituir.
-                  </p>
-                )}
-                <button
-                  type="button"
-                  className="mt-2 text-sm underline"
-                  onClick={() => setImageUrl("")}
-                >
-                  Remover imagem
-                </button>
-              </div>
             )}
-            {uploading && <p role="status">Preparando imagem...</p>}
+            <fieldset
+              hidden={cropping}
+              disabled={uploading}
+              className="space-y-4"
+            >
+              <Field label="Imagem (JPG, PNG ou WebP, até 2 MB)">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={selectImage}
+                  className="block w-full text-sm"
+                />
+              </Field>
+              <Field label="Ou endereço HTTPS da imagem">
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={imageUrl.startsWith("https:") ? imageUrl : ""}
+                  onChange={(event) => setImageUrl(event.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              {imageUrl && (
+                <div>
+                  <img
+                    src={imageUrl}
+                    alt="Prévia da imagem"
+                    className="h-40 w-full rounded-xl object-contain"
+                  />
+                  {isDemoImage(imageUrl) && (
+                    <p className="mt-2 text-xs text-[#725744]">
+                      Imagem ilustrativa. Envie uma foto real para substituir.
+                    </p>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    <button
+                      ref={cropButton}
+                      type="button"
+                      className={secondaryClass}
+                      onClick={() => setCropping(true)}
+                    >
+                      Reenquadrar imagem
+                    </button>
+                    <button
+                      type="button"
+                      className="mt-2 text-sm underline"
+                      onClick={() => setImageUrl("")}
+                    >
+                      Remover imagem
+                    </button>
+                  </div>
+                </div>
+              )}
+              {uploading && <p role="status">Preparando imagem...</p>}
+            </fieldset>
             <label className="flex items-center gap-2 text-sm">
               <input
                 name="active"
@@ -268,7 +312,10 @@ function Editor({ tab, item, onClose }) {
             </Field>
           </>
         )}
-        <SaveButton pending={save.isPending || uploading || photoBusy} />
+        <SaveButton
+          pending={save.isPending || uploading}
+          disabled={photoBusy || cropping}
+        />
       </form>
     </Modal>
   );

@@ -26,6 +26,7 @@ function ProductEditor({ item, onClose }) {
   const [error, setError] = useState("");
   async function submit(event) {
     event.preventDefault();
+    if (save.isPending || uploading) return;
     setError("");
     const values = Object.fromEntries(new FormData(event.currentTarget));
     const body = {
@@ -155,7 +156,7 @@ function ProductEditor({ item, onClose }) {
             {error}
           </p>
         )}
-        <SaveButton pending={save.isPending || uploading} />
+        <SaveButton pending={save.isPending} disabled={uploading} />
       </form>
     </Modal>
   );

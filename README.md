@@ -200,6 +200,15 @@ Fotos reais enviadas no admin têm prioridade sobre as imagens de demonstração
 Serviços e produtos aceitam até 8 fotos JPG, PNG ou WebP de até 2 MB cada, ou links
 HTTPS. Em **Adicionar fotos**, selecione vários arquivos; use **Usar como capa**
 para destacar uma foto e **Remover** para retirá-la. A primeira foto é a capa.
+Em cada foto de serviço/produto, clique em **Reenquadrar**; na galeria, use
+**Reenquadrar imagem**. Escolha o formato original, quadrado, retrato (4:5) ou
+paisagem (4:3), ajuste o zoom e arraste a foto com o mouse/dedo. As setas do
+teclado também movem a imagem quando a prévia está selecionada. Clique em
+**Aplicar recorte** e depois em **Salvar** no cadastro. **Cancelar recorte**
+mantém a foto anterior. O recorte gera uma nova imagem de até 2 MB e 1920 pixels
+no maior lado, preservando transparência; não amplia fotos pequenas. Links de
+outros sites só podem ser recortados quando permitem acesso à imagem pelo
+navegador (CORS); se houver bloqueio, envie o arquivo pelo campo de fotos.
 As novas imagens são enviadas individualmente ao servidor e gravadas no Postgres,
 com URLs próprias e cache. O catálogo não baixa todas as novas fotos em JSON.
 Fotos antigas continuam válidas. A galeria geral e o modelo personalizado de

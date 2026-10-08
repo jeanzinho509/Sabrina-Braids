@@ -101,11 +101,11 @@ export function Modal({ title, onClose, children, busy }) {
     </dialog>
   );
 }
-export function SaveButton({ pending }) {
+export function SaveButton({ pending, disabled = false }) {
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
       className={`${buttonClass} w-full`}
     >
       {pending ? "Salvando..." : "Salvar"}
